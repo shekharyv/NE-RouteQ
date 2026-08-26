@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NE-RouteIQ - AI-Powered Smart Logistics & Accessibility Intelligence</title>
+    <!-- Fonts: Inter & Poppins -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 1. LEFT SIDEBAR (Desktop / Tablet) -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <div class="brand-logo">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="#2563EB" stroke-width="2" stroke-linejoin="round"/>
+                        <path d="M2 17L12 22L22 17" stroke="#14B8A6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M2 12L12 17L22 12" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <circle cx="12" cy="7" r="2" fill="#14B8A6"/>
+                    </svg>
+                </div>
+                <div class="brand-text">
+                    <h1>NE-RouteIQ</h1>
+                    <span>Smart Logistics for NER</span>
+                </div>
+                <button class="sidebar-close" id="sidebarCloseBtn">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-tab="home">
+                    <i data-lucide="layout-dashboard"></i>
+                    <span>Home</span>
+                </a>
+                <a href="#" class="nav-item" data-tab="missions">
+                    <i data-lucide="briefcase"></i>
+                    <span>Missions</span>
+                </a>
+                <a href="#" class="nav-item" data-tab="routes">
+                    <i data-lucide="map-pin"></i>
+                    <span>Routes</span>
+                </a>
+                <a href="#" class="nav-item" data-tab="map">
+                    <i data-lucide="map"></i>
+                    <span>Live Map</span>
+                </a>
+                <a href="#" class="nav-item" data-tab="tracking">
+                    <i data-lucide="navigation"></i>
+                    <span>Tracking</span>
+                </a>
+                <a href="#" class="nav-item" data-tab="alerts">
+                    <i data-lucide="alert-triangle"></i>
+                    <span>Alerts</span>
+                    <span class="nav-badge">3</span>
+                </a>
+                <a href="#" class="nav-item" data-tab="analytics">
+                    <i data-lucide="bar-chart-3"></i>
+                    <span>Analytics</span>
+                </a>
+                <a href="#" class="nav-item" data-tab="reports">
+                    <i data-lucide="file-text"></i>
+                    <span>Reports</span>
+                </a>
+                <a href="#" class="nav-item" data-tab="settings">
+                    <i data-lucide="settings"></i>
+                    <span>Settings</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="user-profile-card">
+                    <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100&h=100" alt="User Avatar" class="user-avatar-img">
+                    <div class="user-info">
+                        <h4>Shekhar Kumar</h4>
+                        <p>Logistics Operator</p>
+                    </div>
+                    <i data-lucide="chevron-down" class="user-dropdown-icon"></i>
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN LAYOUT WRAPPER -->
+        <div class="main-wrapper">
+            <!-- 2. TOP HEADER -->
+            <header class="top-header">
+                <div class="header-left">
+                    <button class="sidebar-toggle" id="sidebarToggleBtn">
+                        <i data-lucide="menu"></i>
+                    </button>
+                    <!-- Mobile Logo Title -->
+                    <div class="mobile-logo-title">
+                        <span class="logo-title">NE-RouteIQ</span>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <div class="header-widget weather-widget">
+                        <i data-lucide="cloud-rain" class="weather-icon"></i>
+                        <div class="weather-text">
+                            <span class="weather-temp">24°C</span>
+                            <span class="weather-loc">Guwahati, Assam</span>
+                        </div>
+                    </div>
+                    <div class="header-action-btn notification-btn">
+                        <i data-lucide="bell"></i>
+                        <span class="badge-count">3</span>
+                    </div>
+                    <div class="header-action-btn help-btn">
+                        <i data-lucide="help-circle"></i>
+                    </div>
+                    <div class="header-profile">
+                        <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100&h=100" alt="User Avatar" class="header-avatar">
+                    </div>
+                </div>
+            </header>
+
+            <!-- MAIN CONTENT CONTAINER -->
+            <main class="main-content">
+                <!-- 3. HERO SECTION -->
+                <section class="hero-section">
+                    <div class="hero-left">
+                        <h2 class="hero-title">Good Morning, Shekhar! 👋</h2>
+                        <p class="hero-subtitle">Logistics intelligence & accessibility insights for North-East India</p>
+                    </div>
+                    <div class="hero-right">
+                        <button class="btn btn-primary" id="openMissionModalBtn">
+                            <i data-lucide="plus"></i>
+                            <span>Create New Mission</span>
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Core Product Message Banner (Judge-Friendly Headline) -->
+                <div class="product-banner">
+                    <div class="banner-badge">AI + GIS Intelligence</div>
+                    <p class="banner-text">“We don’t just find the shortest route. We find the smartest route for the mission.”</p>
+                </div>
+
+                <!-- 4. KPI CARDS -->
+                <section class="kpi-grid">
+                    <div class="kpi-card">
+                        <div class="kpi-header">
+                            <span class="kpi-title">Active Missions</span>
+                            <div class="kpi-icon-wrapper primary">
+                                <i data-lucide="activity"></i>
+                            </div>
+                        </div>
+                        <div class="kpi-body">
+                            <span class="kpi-value" id="kpi-active-missions">04</span>
+                            <div class="kpi-indicator success">
+                                <i data-lucide="trending-up"></i>
+                                <span>Optimal telemetry</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="kpi-card">
+                        <div class="kpi-header">
+                            <span class="kpi-title">Completed Missions</span>
+                            <div class="kpi-icon-wrapper secondary">
+                                <i data-lucide="check-circle2"></i>
+                            </div>
+                        </div>
+                        <div class="kpi-body">
+                            <span class="kpi-value" id="kpi-completed-missions">128</span>
+                            <div class="kpi-indicator neutral">
+                                <span>This Quarter</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="kpi-card">
+                        <div class="kpi-header">
+                            <span class="kpi-title">Active Alerts</span>
+                            <div class="kpi-icon-wrapper danger">
+                                <i data-lucide="alert-triangle"></i>
+                            </div>
+                        </div>
+                        <div class="kpi-body">
+                            <span class="kpi-value text-danger" id="kpi-active-alerts">03</span>
+                            <div class="kpi-indicator danger">
+                                <i data-lucide="alert-octagon"></i>
+                                <span>1 Critical Landslide</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="kpi-card">
+                        <div class="kpi-header">
+                            <span class="kpi-title">Avg. Accessibility</span>
+                            <div class="kpi-icon-wrapper warning">
+                                <i data-lucide="shield-check"></i>
+                            </div>
+                        </div>
+                        <div class="kpi-body">
+                            <span class="kpi-value" id="kpi-accessibility">86/100</span>
+                            <div class="kpi-indicator warning">
+                                <i data-lucide="trending-down"></i>
+                                <span>-2% Monsoon impact</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="kpi-card">
+                        <div class="kpi-header">
+                            <span class="kpi-title">On-Time Delivery</span>
+                            <div class="kpi-icon-wrapper info">
+                                <i data-lucide="clock"></i>
+                            </div>
+                        </div>
+                        <div class="kpi-body">
+                            <span class="kpi-value" id="kpi-ontime">92%</span>
+                            <div class="kpi-indicator success">
+                                <i data-lucide="trending-up"></i>
+                                <span>+1.4% AI Rerouting</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- MAP & ACTIVE DETAIL SECTION -->
+                <section class="map-detail-layout">
+                    <!-- 5. LARGE LIVE LOGISTICS MAP -->
+                    <div class="map-container card">
+                        <div class="map-header">
+                            <div class="map-title-wrap">
+                                <h3>GIS Live Operations Center</h3>
+                                <span class="map-subtitle">Real-time accessibility layers & active mission pathing</span>
+                            </div>
+                            <div class="map-controls">
+                                <button class="btn btn-sm btn-secondary active"><i data-lucide="layers"></i> <span>Terrain & Risk</span></button>
+                                <button class="btn btn-sm btn-secondary"><i data-lucide="cloud-lightning"></i> <span>Weather Radar</span></button>
+                            </div>
+                        </div>
+                        
+                        <!-- Tactical SVG Map Interface -->
+                        <div class="tactical-map-viewport">
+                            <div class="map-grid-overlay"></div>
+                            <div class="map-scan-line"></div>
+                            
+                            <svg class="gis-svg-map" viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg">
+                                <!-- Background grid -->
+                                <defs>
+                                    <pattern id="gridPattern" width="40" height="40" patternUnits="userSpaceOnUse">
+                                        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(148, 163, 184, 0.05)" stroke-width="1"/>
+                                    </pattern>
+                                    <filter id="glow-green" x="-20%" y="-20%" width="140%" height="140%">
+                                        <feGaussianBlur stdDeviation="3" result="blur" />
+                                        <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                                    </filter>
+                                    <filter id="glow-orange" x="-20%" y="-20%" width="140%" height="140%">
+                                        <feGaussianBlur stdDeviation="3" result="blur" />
+                                        <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                                    </filter>
+                                    <filter id="glow-red" x="-20%" y="-20%" width="140%" height="140%">
+                                        <feGaussianBlur stdDeviation="3" result="blur" />
+                                        <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                                    </filter>
+                                </defs>
+                                <rect width="100%" height="100%" fill="url(#gridPattern)" />
+
+                                <!-- Styled Polygons for North East States -->
+                                <g class="map-states">
+                                    <!-- Arunachal Pradesh -->
+                                    <path class="state-poly AP" d="M 280,100 L 400,60 L 520,80 L 680,40 L 720,120 L 630,220 L 540,160 L 420,170 L 320,150 Z" />
+                                    <text x="500" y="110" class="state-label">Arunachal Pradesh</text>
+
+                                    <!-- Assam -->
+                                    <path class="state-poly AS" d="M 200,240 L 280,100 L 320,150 L 420,170 L 540,160 L 630,220 L 610,250 L 560,250 L 510,210 L 400,200 L 360,260 L 260,270 L 230,350 L 220,330 L 200,330 L 220,290 Z" />
+                                    <text x="350" y="220" class="state-label">Assam</text>
+
+                                    <!-- Meghalaya -->
+                                    <path class="state-poly ML" d="M 180,290 L 280,285 L 290,320 L 200,330 Z" />
+                                    <text x="235" y="310" class="state-label">Meghalaya</text>
+
+                                    <!-- Nagaland -->
+                                    <path class="state-poly NL" d="M 610,250 L 660,270 L 640,320 L 590,290 Z" />
+                                    <text x="635" y="285" class="state-label font-sm">Nagaland</text>
+
+                                    <!-- Manipur -->
+                                    <path class="state-poly MN" d="M 590,290 L 640,320 L 610,380 L 560,370 Z" />
+                                    <text x="600" y="340" class="state-label font-sm">Manipur</text>
+
+                                    <!-- Mizoram -->
+                                    <path class="state-poly MZ" d="M 560,370 L 585,380 L 565,470 L 520,440 Z" />
+                                    <text x="555" y="420" class="state-label font-sm">Mizoram</text>
+
+                                    <!-- Tripura -->
+                                    <path class="state-poly TR" d="M 230,350 L 260,355 L 255,420 L 220,400 Z" />
+                                    <text x="238" y="385" class="state-label font-xs">Tripura</text>
+                                </g>
+
+                                <!-- Major Cities / Hubs Nodes -->
+                                <g class="map-cities">
+                                    <!-- Guwahati -->
+                                    <circle cx="230" cy="270" r="6" class="city-node hub" />
+                                    <text x="220" y="258" class="city-name font-bold">Guwahati</text>
+                                    
+                                    <!-- Shillong -->
+                                    <circle cx="260" cy="305" r="4" class="city-node" />
+                                    <text x="268" y="308" class="city-name">Shillong</text>
+
+                                    <!-- Silchar -->
+                                    <circle cx="480" cy="345" r="4" class="city-node" />
+                                    <text x="490" y="350" class="city-name">Silchar</text>
+
+                                    <!-- Imphal -->
+                                    <circle cx="600" cy="350" r="6" class="city-node hub destination" />
+                                    <text x="612" y="354" class="city-name font-bold">Imphal</text>
+
+                                    <!-- Aizawl -->
+                                    <circle cx="550" cy="405" r="4" class="city-node" />
+                                    <text x="560" y="409" class="city-name">Aizawl</text>
+
+                                    <!-- Kohima -->
+                                    <circle cx="615" cy="300" r="4" class="city-node" />
+                                    <text x="625" y="304" class="city-name">Kohima</text>
+
+                                    <!-- Tezpur -->
+                                    <circle cx="380" cy="210" r="4" class="city-node" />
+                                    <text x="380" y="200" class="city-name">Tezpur</text>
+
+                                    <!-- Jorhat -->
+                                    <circle cx="490" cy="225" r="4" class="city-node" />
+                                    <text x="490" y="215" class="city-name">Jorhat</text>
+                                </g>
+
+                                <!-- ACTIVE MISSION PATHWAY: Guwahati -> Imphal -->
+                                <!-- We break it into three segments for color-coded risk visualizer -->
+                                <g class="active-route-paths" id="route-med-1024">
+                                    <!-- Segment 1: Guwahati to Shillong / Silchar junction (Safe - Green) -->
+                                    <path d="M 230,270 Q 280,285 360,310 T 480,345" fill="none" stroke="#22C55E" stroke-width="4" filter="url(#glow-green)" stroke-dasharray="1000" stroke-dashoffset="0" class="route-segment green" />
+                                    
+                                    <!-- Segment 2: Silchar to Jiribam (Medium Risk - Orange) -->
+                                    <path d="M 480,345 Q 520,335 550,342" fill="none" stroke="#F59E0B" stroke-width="4" filter="url(#glow-orange)" class="route-segment orange" />
+                                    
+                                    <!-- Segment 3: Jiribam to Imphal (High Risk - Red) -->
+                                    <path d="M 550,342 L 600,350" fill="none" stroke="#EF4444" stroke-width="4" filter="url(#glow-red)" class="route-segment red" />
+
+                                    <!-- Animated vehicle route path (invisible, used to track animation) -->
+                                    <path id="vehicle-track" d="M 230,270 Q 280,285 360,310 T 480,345 Q 520,335 550,342 L 600,350" fill="none" stroke="transparent" stroke-width="1" />
+                                </g>
+
+                                <!-- ALTERNATIVE ROUTES (FD-2048 etc, initially hidden or dashed) -->
+                                <g class="inactive-route-paths" id="route-fd-2048" style="display: none;">
+                                    <!-- Silchar -> Aizawl -->
+                                    <path d="M 480,345 Q 510,375 550,405" fill="none" stroke="#22C55E" stroke-width="3" stroke-dasharray="5,5" filter="url(#glow-green)" />
+                                </g>
+                                <g class="inactive-route-paths" id="route-dr-3056" style="display: none;">
+                                    <!-- Jorhat -> Tezpur -->
+                                    <path d="M 490,225 L 380,210" fill="none" stroke="#22C55E" stroke-width="3" stroke-dasharray="5,5" filter="url(#glow-green)" />
+                                </g>
+                                <g class="inactive-route-paths" id="route-ag-4091" style="display: none;">
+                                    <!-- Dimapur -> Kohima (Actually Dimapur is near Kohima, let's represent with a short segment) -->
+                                    <path d="M 490,225 L 615,300" fill="none" stroke="#22C55E" stroke-width="3" stroke-dasharray="5,5" filter="url(#glow-green)" />
+                                </g>
+
+                                <!-- Markers & Incidents along the route -->
+                                <g class="map-hazard-markers">
+                                    <!-- Rain Warning (on Orange Segment) -->
+                                    <g transform="translate(515, 315)" class="map-icon-marker warning">
+                                        <circle cx="10" cy="10" r="12" class="marker-bg" />
+                                        <!-- Cloud rain icon outline simplified -->
+                                        <path d="M6 11 C4.5 11 3.5 10 3.5 8.5 C3.5 7 4.7 6.2 6 6.2 C6.5 4.5 8 3.5 10 3.5 C12.5 3.5 14 5.5 13.5 7.5 C14.5 7.5 15.5 8.5 15.5 9.8 C15.5 11 14.5 11 13.5 11 Z" fill="#F59E0B" />
+                                        <line x1="7" y1="13" x2="6" y2="15" stroke="#F59E0B" stroke-width="1.5" stroke-linecap="round"/>
+                                        <line x1="10" y1="13" x2="9" y2="15" stroke="#F59E0B" stroke-width="1.5" stroke-linecap="round"/>
+                                        <line x1="13" y1="13" x2="12" y2="15" stroke="#F59E0B" stroke-width="1.5" stroke-linecap="round"/>
+                                    </g>
+
+                                    <!-- Landslide Blockage (on Red Segment) -->
+                                    <g transform="translate(568, 328)" class="map-icon-marker danger pulse-fast">
+                                        <circle cx="10" cy="10" r="12" class="marker-bg" />
+                                        <!-- Warning triangle -->
+                                        <polygon points="10,2 19,17 1,17" fill="#EF4444" />
+                                        <rect x="9" y="7" width="2" height="5" fill="#FFF" />
+                                        <circle cx="10" cy="15" r="1" fill="#FFF" />
+                                    </g>
+                                </g>
+
+                                <!-- Animated Vehicle Pulse Dot -->
+                                <g id="vehicle-marker" class="vehicle-marker">
+                                    <circle cx="0" cy="0" r="10" class="vehicle-pulse-ring" />
+                                    <circle cx="0" cy="0" r="6" class="vehicle-dot" />
+                                    <!-- A tiny direction arrowhead -->
+                                    <polygon points="-3,-2 4,0 -3,2" fill="#FFFFFF" transform="rotate(0)" id="vehicle-arrow"/>
+                                </g>
+                            </svg>
+
+                            <!-- Map Floating Legend -->
+                            <div class="map-legend">
+                                <div class="legend-title">Routing Intelligence</div>
+                                <div class="legend-grid">
+                                    <div class="legend-item"><span class="legend-color green"></span><span class="legend-label">Safe Route</span></div>
+                                    <div class="legend-item"><span class="legend-color orange"></span><span class="legend-label">Medium Risk</span></div>
+                                    <div class="legend-item"><span class="legend-color red"></span><span class="legend-label">High Risk</span></div>
+                                    <div class="legend-item">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2.5"><path d="M20 17.58A5 5 0 0 0 18 8h-1.26A8 8 0 1 0 4 16.25"/><line x1="8" y1="16" x2="8" y2="20"/><line x1="12" y1="16" x2="12" y2="20"/><line x1="16" y1="16" x2="16" y2="20"/></svg>
+                                        <span class="legend-label">Weather Impact</span>
+                                    </div>
+                                    <div class="legend-item">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2.5"><polygon points="12 2 22 22 2 22"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                                        <span class="legend-label">Road Blockage</span>
+                                    </div>
+                                    <div class="legend-item"><span class="legend-vehicle-dot"></span><span class="legend-label">Vehicle Marker</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 6. ACTIVE MISSION PANEL BESIDE MAP -->
+                    <div class="active-mission-card card">
+                        <div class="card-header border-b">
+                            <div class="mission-header-info">
+                                <span class="mission-tag">ACTIVE TELEMETRY</span>
+                                <h3>Mission MED-1024</h3>
+                            </div>
+                            <span class="badge badge-success pulse-ring" id="det-status-badge"><span class="dot"></span>In Transit</span>
+                        </div>
+                        <div class="card-body mission-panel-body">
+                            <!-- Mission Meta Details -->
+                            <div class="mission-meta-grid">
+                                <div class="meta-item">
+                                    <span class="meta-label">Route</span>
+                                    <span class="meta-value font-semibold text-primary" id="det-route">Guwahati → Imphal</span>
+                                </div>
+                                <div class="meta-item">
+                                    <span class="meta-label">Mission Category</span>
+                                    <span class="badge-category" id="det-badge"><i data-lucide="shield-alert" class="category-icon text-primary"></i>Medicine</span>
+                                </div>
+                                <div class="meta-item">
+                                    <span class="meta-label">Vehicle Registration</span>
+                                    <span class="meta-value font-mono" id="det-vehicle">AS-01-BC-1234</span>
+                                </div>
+                                <div class="meta-item">
+                                    <span class="meta-label">Cargo Manifest</span>
+                                    <span class="meta-value" id="det-cargo">Medical Supplies</span>
+                                </div>
+                                <div class="meta-item">
+                                    <span class="meta-label">Priority Level</span>
+                                    <span class="badge badge-danger" id="det-priority">CRITICAL</span>
+                                </div>
+                                <div class="meta-item">
+                                    <span class="meta-label">Risk Profile</span>
+                                    <span class="badge badge-warning" id="det-risk">LOW RISK</span>
+                                </div>
+                            </div>
+
+                            <!-- Dashboard Telemetry Progress -->
+                            <div class="telemetry-bar-section">
+                                <div class="telemetry-label-row">
+                                    <span>Transit Progress</span>
+                                    <span class="progress-percent" id="det-progress-percent">65%</span>
+                                </div>
+                                <div class="progress-bar-bg">
+                                    <div class="progress-bar-fill" id="det-progress-bar" style="width: 65%"></div>
+                                </div>
+                            </div>
+
+                            <!-- Detailed Metrics (2x2 Grid) -->
+                            <div class="telemetry-metrics">
+                                <div class="metric-box">
+                                    <i data-lucide="clock"></i>
+                                    <div class="metric-text">
+                                        <span class="metric-label">ETA</span>
+                                        <span class="metric-val" id="det-eta">2h 18m</span>
+                                    </div>
+                                </div>
+                                <div class="metric-box">
+                                    <i data-lucide="milestone"></i>
+                                    <div class="metric-text">
+                                        <span class="metric-label">Distance Left</span>
+                                        <span class="metric-val" id="det-distance">147 km</span>
+                                    </div>
+                                </div>
+                                <div class="metric-box">
+                                    <i data-lucide="gauge"></i>
+                                    <div class="metric-text">
+                                        <span class="metric-label">Current Speed</span>
+                                        <span class="metric-val" id="det-speed">42 km/h</span>
+                                    </div>
+                                </div>
+                                <div class="metric-box highlighted">
+                                    <i data-lucide="shield-check" class="text-secondary"></i>
+                                    <div class="metric-text">
+                                        <span class="metric-label">Accessibility</span>
+                                        <span class="metric-val text-secondary" id="det-accessibility">86/100</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button class="btn btn-primary btn-full mt-auto">
+                                <span>View Live Tracking</span>
+                                <i data-lucide="arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- BELOW MAP SECTION: TABLE & CHART -->
+                <section class="table-chart-layout">
+                    <!-- 7. MY ACTIVE MISSIONS LIST -->
+                    <div class="missions-table-card card">
+                        <div class="card-header border-b">
+                            <h3>My Active Missions</h3>
+                            <div class="card-actions">
+                                <div class="search-box">
+                                    <i data-lucide="search"></i>
+                                    <input type="text" placeholder="Search missions...">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="missions-table">
+                                <thead>
+                                    <tr>
+                                        <th>Mission ID</th>
+                                        <th>Category</th>
+                                        <th>Route Path</th>
+                                        <th>Status</th>
+                                        <th>ETA</th>
+                                        <th>Accessibility</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="missionsTableBody">
+                                    <!-- Row 1: Selected / Active -->
+                                    <tr class="mission-row selected" data-mission-id="MED-1024">
+                                        <td class="font-bold text-primary">MED-1024</td>
+                                        <td><span class="badge-category"><i data-lucide="shield-alert" class="category-icon text-primary"></i>Medicine</span></td>
+                                        <td class="font-semibold">Guwahati → Imphal</td>
+                                        <td><span class="badge badge-success"><span class="dot"></span>In Transit</span></td>
+                                        <td>2h 18m</td>
+                                        <td><span class="score-indicator green">86/100</span></td>
+                                        <td><button class="btn btn-icon btn-sm btn-ghost select-mission"><i data-lucide="eye"></i></button></td>
+                                    </tr>
+                                    <!-- Row 2 -->
+                                    <tr class="mission-row" data-mission-id="FD-2048">
+                                        <td class="font-bold text-primary">FD-2048</td>
+                                        <td><span class="badge-category"><i data-lucide="shopping-bag" class="category-icon"></i>Food</span></td>
+                                        <td class="font-semibold">Silchar → Aizawl</td>
+                                        <td><span class="badge badge-warning"><span class="dot"></span>Delay Risk</span></td>
+                                        <td>5h 45m</td>
+                                        <td><span class="score-indicator orange">78/100</span></td>
+                                        <td><button class="btn btn-icon btn-sm btn-ghost select-mission"><i data-lucide="eye"></i></button></td>
+                                    </tr>
+                                    <!-- Row 3 -->
+                                    <tr class="mission-row" data-mission-id="DR-3056">
+                                        <td class="font-bold text-primary">DR-3056</td>
+                                        <td><span class="badge-category"><i data-lucide="flame" class="category-icon"></i>Disaster Relief</span></td>
+                                        <td class="font-semibold">Jorhat → Tezpur</td>
+                                        <td><span class="badge badge-neutral"><span class="dot"></span>Completed</span></td>
+                                        <td>--</td>
+                                        <td><span class="score-indicator green">95/100</span></td>
+                                        <td><button class="btn btn-icon btn-sm btn-ghost select-mission"><i data-lucide="eye"></i></button></td>
+                                    </tr>
+                                    <!-- Row 4 -->
+                                    <tr class="mission-row" data-mission-id="AG-4091">
+                                        <td class="font-bold text-primary">AG-4091</td>
+                                        <td><span class="badge-category"><i data-lucide="leaf" class="category-icon"></i>Agriculture</span></td>
+                                        <td class="font-semibold">Dimapur → Kohima</td>
+                                        <td><span class="badge badge-info"><span class="dot"></span>Scheduled</span></td>
+                                        <td>1d 2h</td>
+                                        <td><span class="score-indicator green">90/100</span></td>
+                                        <td><button class="btn btn-icon btn-sm btn-ghost select-mission"><i data-lucide="eye"></i></button></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- 8. ACCESSIBILITY OVERVIEW -->
+                    <div class="accessibility-card card">
+                        <div class="card-header border-b">
+                            <div class="chart-header-info">
+                                <h3>Accessibility Overview</h3>
+                                <span class="chart-subtitle">Regional road network integrity index</span>
+                            </div>
+                            <div class="chart-filters">
+                                <span class="btn btn-xs btn-secondary active">7D</span>
+                                <span class="btn btn-xs btn-secondary">30D</span>
+                            </div>
+                        </div>
+                        <div class="card-body flex-col">
+                            <!-- SVG Accessibility Trend Chart -->
+                            <div class="trend-chart-container">
+                                <svg class="trend-svg-chart" viewBox="0 0 400 150" xmlns="http://www.w3.org/2000/svg">
+                                    <!-- Grid lines -->
+                                    <line x1="0" y1="30" x2="400" y2="30" stroke="rgba(148,163,184,0.08)" stroke-width="1"/>
+                                    <line x1="0" y1="75" x2="400" y2="75" stroke="rgba(148,163,184,0.08)" stroke-width="1"/>
+                                    <line x1="0" y1="120" x2="400" y2="120" stroke="rgba(148,163,184,0.08)" stroke-width="1"/>
+                                    
+                                    <!-- Glow filter chart path -->
+                                    <path d="M 10,120 L 70,110 L 130,85 L 190,95 L 250,55 L 310,70 L 390,40" fill="none" stroke="rgba(20, 184, 166, 0.15)" stroke-width="6" stroke-linecap="round"/>
+                                    <!-- Chart line -->
+                                    <path d="M 10,120 L 70,110 L 130,85 L 190,95 L 250,55 L 310,70 L 390,40" fill="none" stroke="#14B8A6" stroke-width="3" stroke-linecap="round" id="trend-line-path"/>
+                                    
+                                    <!-- Data Dots -->
+                                    <circle cx="10" cy="120" r="4" fill="#14B8A6" stroke="#FFF" stroke-width="1.5" />
+                                    <circle cx="70" cy="110" r="4" fill="#14B8A6" stroke="#FFF" stroke-width="1.5" />
+                                    <circle cx="130" cy="85" r="4" fill="#14B8A6" stroke="#FFF" stroke-width="1.5" />
+                                    <circle cx="190" cy="95" r="4" fill="#14B8A6" stroke="#FFF" stroke-width="1.5" />
+                                    <circle cx="250" cy="55" r="4" fill="#14B8A6" stroke="#FFF" stroke-width="1.5" />
+                                    <circle cx="310" cy="70" r="4" fill="#14B8A6" stroke="#FFF" stroke-width="1.5" />
+                                    <circle cx="390" cy="40" r="4" fill="#14B8A6" stroke="#FFF" stroke-width="1.5" />
+                                </svg>
+                                <div class="chart-labels">
+                                    <span>Mon</span>
+                                    <span>Tue</span>
+                                    <span>Wed</span>
+                                    <span>Thu</span>
+                                    <span>Fri</span>
+                                    <span>Sat</span>
+                                    <span>Sun</span>
+                                </div>
+                            </div>
+
+                            <!-- Summary Metrics Row -->
+                            <div class="accessibility-summary">
+                                <div class="summary-metric">
+                                    <span class="sm-label">Best Route</span>
+                                    <span class="sm-val text-success">92/100</span>
+                                </div>
+                                <div class="summary-metric">
+                                    <span class="sm-label">Average</span>
+                                    <span class="sm-val text-primary">86/100</span>
+                                </div>
+                                <div class="summary-metric">
+                                    <span class="sm-label">Lowest</span>
+                                    <span class="sm-val text-danger">58/100</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- LOWER GRID: QUICK ACTIONS & RECENT ALERTS -->
+                <section class="actions-alerts-layout">
+                    <!-- 9. QUICK ACTIONS (2x3 Grid) -->
+                    <div class="quick-actions-card card">
+                        <div class="card-header border-b">
+                            <h3>Quick Action Console</h3>
+                        </div>
+                        <div class="quick-actions-grid">
+                            <button class="action-btn" id="qa-create-mission">
+                                <div class="action-icon-wrap primary">
+                                    <i data-lucide="plus-circle"></i>
+                                </div>
+                                <span>Create Mission</span>
+                            </button>
+                            <button class="action-btn">
+                                <div class="action-icon-wrap secondary">
+                                    <i data-lucide="map"></i>
+                                </div>
+                                <span>Plan Route</span>
+                            </button>
+                            <button class="action-btn">
+                                <div class="action-icon-wrap success">
+                                    <i data-lucide="navigation"></i>
+                                </div>
+                                <span>Live Tracking</span>
+                            </button>
+                            <button class="action-btn">
+                                <div class="action-icon-wrap danger">
+                                    <i data-lucide="alert-octagon"></i>
+                                </div>
+                                <span>Risk Alerts</span>
+                            </button>
+                            <button class="action-btn">
+                                <div class="action-icon-wrap warning">
+                                    <i data-lucide="pie-chart"></i>
+                                </div>
+                                <span>Analytics</span>
+                            </button>
+                            <button class="action-btn font-sm">
+                                <div class="action-icon-wrap info">
+                                    <i data-lucide="file-text"></i>
+                                </div>
+                                <span>Reports</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 10. RECENT ALERTS -->
+                    <div class="alerts-card card">
+                        <div class="card-header border-b">
+                            <h3>Recent Operations Alerts</h3>
+                            <button class="btn btn-xs btn-ghost text-primary">Clear All</button>
+                        </div>
+                        <div class="alerts-list">
+                            <!-- Alert 1 -->
+                            <div class="alert-item high-risk">
+                                <div class="alert-icon-box">
+                                    <i data-lucide="alert-triangle"></i>
+                                </div>
+                                <div class="alert-content">
+                                    <div class="alert-meta">
+                                        <span class="alert-level badge-danger-light">HIGH RISK</span>
+                                        <span class="alert-time">12 mins ago</span>
+                                    </div>
+                                    <p class="alert-desc">Landslide risk detected on NH-102A (Guwahati-Imphal Highway segment). Rerouting recommended.</p>
+                                </div>
+                            </div>
+                            <!-- Alert 2 -->
+                            <div class="alert-item medium-risk">
+                                <div class="alert-icon-box">
+                                    <i data-lucide="cloud-rain"></i>
+                                </div>
+                                <div class="alert-content">
+                                    <div class="alert-meta">
+                                        <span class="alert-level badge-warning-light">MEDIUM RISK</span>
+                                        <span class="alert-time">45 mins ago</span>
+                                    </div>
+                                    <p class="alert-desc">Heavy rainfall expected in next 3 hours along Silchar corridor. Expect speed drops.</p>
+                                </div>
+                            </div>
+                            <!-- Alert 3 -->
+                            <div class="alert-item resolved">
+                                <div class="alert-icon-box">
+                                    <i data-lucide="check-circle2"></i>
+                                </div>
+                                <div class="alert-content">
+                                    <div class="alert-meta">
+                                        <span class="alert-level badge-success-light">WARNING SOLVED</span>
+                                        <span class="alert-time">2 hours ago</span>
+                                    </div>
+                                    <p class="alert-desc">Road blockage cleared on Route B (Guwahati-Tezpur Bypass). Regular transit speeds restored.</p>
+                                </div>
+                            </div>
+                            <!-- Alert 4 -->
+                            <div class="alert-item info">
+                                <div class="alert-icon-box">
+                                    <i data-lucide="info"></i>
+                                </div>
+                                <div class="alert-content">
+                                    <div class="alert-meta">
+                                        <span class="alert-level badge-info-light">INFO</span>
+                                        <span class="alert-time">4 hours ago</span>
+                                    </div>
+                                    <p class="alert-desc">Weather conditions normal across central Assam and Shillong Plateau.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+
+            <!-- 11. FOOTER -->
+            <footer class="main-footer">
+                <p>&copy; 2026 NE-RouteIQ. All rights reserved.</p>
+                <div class="footer-meta">
+                    <span>AI-Powered Access Intelligence for NER</span>
+                    <span class="bullet">•</span>
+                    <span>Made for North-East India</span>
+                </div>
+            </footer>
+        </div>
+
+        <!-- MOBILE BOTTOM NAVIGATION -->
+        <div class="mobile-bottom-nav">
+            <a href="#" class="mobile-nav-item active" data-tab="home">
+                <i data-lucide="home"></i>
+                <span>Home</span>
+            </a>
+            <a href="#" class="mobile-nav-item" data-tab="missions">
+                <i data-lucide="briefcase"></i>
+                <span>Missions</span>
+            </a>
+            <a href="#" class="mobile-nav-item" data-tab="map">
+                <i data-lucide="map"></i>
+                <span>Map</span>
+            </a>
+            <a href="#" class="mobile-nav-item" data-tab="alerts">
+                <i data-lucide="bell"></i>
+                <span>Alerts</span>
+                <span class="mobile-badge">3</span>
+            </a>
+            <a href="#" class="mobile-nav-item" data-tab="settings">
+                <i data-lucide="user"></i>
+                <span>Profile</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- POPUP MODAL: CREATE NEW MISSION -->
+    <div class="modal-overlay" id="missionModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>Create New AI-Routed Mission</h3>
+                <button class="modal-close-btn" id="closeMissionModalBtn">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <form id="createMissionForm" class="modal-form">
+                <div class="form-group">
+                    <label for="missionId">Mission Code (ID)</label>
+                    <input type="text" id="missionId" placeholder="e.g. MED-1025" required class="form-input">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="missionCategory">Mission Type / Category</label>
+                        <select id="missionCategory" class="form-select">
+                            <option value="Medicine">Medicine</option>
+                            <option value="Food">Food / Supply</option>
+                            <option value="Disaster Relief">Disaster Relief</option>
+                            <option value="Agriculture">Agriculture</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="missionPriority">Priority Level</label>
+                        <select id="missionPriority" class="form-select">
+                            <option value="CRITICAL">Critical</option>
+                            <option value="HIGH">High</option>
+                            <option value="MEDIUM">Medium</option>
+                            <option value="LOW">Low</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="startLocation">Origin Location</label>
+                        <select id="startLocation" class="form-select">
+                            <option value="Guwahati">Guwahati (Assam)</option>
+                            <option value="Silchar">Silchar (Assam)</option>
+                            <option value="Jorhat">Jorhat (Assam)</option>
+                            <option value="Dimapur">Dimapur (Nagaland)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="endLocation">Destination</label>
+                        <select id="endLocation" class="form-select">
+                            <option value="Imphal">Imphal (Manipur)</option>
+                            <option value="Aizawl">Aizawl (Mizoram)</option>
+                            <option value="Kohima">Kohima (Nagaland)</option>
+                            <option value="Tezpur">Tezpur (Assam)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="vehicleReg">Vehicle Registration Number</label>
+                        <input type="text" id="vehicleReg" placeholder="e.g. AS-01-XX-9999" required class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="cargoManifest">Cargo Details</label>
+                        <input type="text" id="cargoManifest" placeholder="e.g. COVID Vaccines" required class="form-input">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="cancelMissionFormBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i data-lucide="zap"></i>
+                        <span>AI Calculate Route & Start</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Custom Script -->
+    <script src="app.js"></script>
+</body>
+</html>
