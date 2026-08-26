@@ -8,6 +8,159 @@ import {
     Download, Sliders, MoreHorizontal, Wrench, Box, Trash2
 } from 'lucide-react';
 
+const fallbackMissions = [
+    {
+        id: 'MED-1024',
+        category: 'Medicine',
+        icon: 'shield-alert',
+        route: 'Guwahati → Imphal',
+        origin: 'Guwahati',
+        destination: 'Imphal',
+        vehicle: 'AS-01-BC-1234',
+        cargo: 'Medical Supplies',
+        priority: 'CRITICAL',
+        risk: 'LOW RISK',
+        progress: 65,
+        eta: '2h 18m',
+        distance: '147 km left',
+        speed: 42,
+        accessibility: '86/100',
+        svgPath: 'M 230,270 Q 280,285 360,310 T 480,345 Q 520,335 550,342 L 600,350',
+        hazards: [
+            { type: 'rain', x: 515, y: 315 },
+            { type: 'landslide', x: 568, y: 328 }
+        ]
+    },
+    {
+        id: 'FD-2048',
+        category: 'Food Supplies',
+        icon: 'shopping-bag',
+        route: 'Silchar → Aizawl',
+        origin: 'Silchar',
+        destination: 'Aizawl',
+        vehicle: 'MZ-01-D-5678',
+        cargo: 'Rice & Dal Rations',
+        priority: 'HIGH',
+        risk: 'MEDIUM RISK',
+        progress: 55,
+        eta: '3h 45m',
+        distance: '198 km left',
+        speed: 32,
+        accessibility: '72/100',
+        svgPath: 'M 480,345 Q 510,375 550,405',
+        hazards: [
+            { type: 'rain', x: 515, y: 375 }
+        ]
+    },
+    {
+        id: 'DR-3056',
+        category: 'Disaster Relief',
+        icon: 'flame',
+        route: 'Jorhat → Tezpur',
+        origin: 'Jorhat',
+        destination: 'Tezpur',
+        vehicle: 'AS-03-TR-8821',
+        cargo: 'Inflatable Rafts',
+        priority: 'CRITICAL',
+        risk: 'LOW RISK',
+        progress: 30,
+        eta: '1h 05m',
+        distance: '43 km left',
+        speed: 38,
+        accessibility: '90/100',
+        svgPath: 'M 490,225 L 380,210',
+        hazards: []
+    },
+    {
+        id: 'AG-4091',
+        category: 'Agriculture',
+        icon: 'leaf',
+        route: 'Dimapur → Kohima',
+        origin: 'Dimapur',
+        destination: 'Kohima',
+        vehicle: 'NL-01-A-4432',
+        cargo: 'Organic Fertilizers',
+        priority: 'MEDIUM',
+        risk: 'LOW RISK',
+        progress: 10,
+        eta: 'Tomorrow 10:00 AM',
+        distance: '74 km left',
+        speed: 28,
+        accessibility: '68/100',
+        svgPath: 'M 490,225 L 615,300',
+        hazards: []
+    },
+    {
+        id: 'CN-5012',
+        category: 'Construction',
+        icon: 'wrench',
+        route: 'Shillong → Tura',
+        origin: 'Shillong',
+        destination: 'Tura',
+        vehicle: 'ML-01-C-8812',
+        cargo: 'Steel Beams & Cement',
+        priority: 'MEDIUM',
+        risk: 'MEDIUM RISK',
+        progress: 0,
+        eta: 'May 31, 09:00 AM',
+        distance: '220 km left',
+        speed: 0,
+        accessibility: '64/100',
+        svgPath: 'M 260,305 L 230,350',
+        hazards: []
+    },
+    {
+        id: 'GC-6023',
+        category: 'General Cargo',
+        icon: 'box',
+        route: 'Agartala → Kailashahar',
+        origin: 'Agartala',
+        destination: 'Kailashahar',
+        vehicle: 'TR-01-G-3310',
+        cargo: 'Postal Packages & Electronics',
+        priority: 'LOW',
+        risk: 'LOW RISK',
+        progress: 100,
+        eta: 'Delivered',
+        distance: '0 km left',
+        speed: 0,
+        accessibility: '88/100',
+        svgPath: 'M 230,350 L 260,355',
+        hazards: []
+    }
+];
+
+const fallbackAlerts = [
+    {
+        id: 1,
+        level: 'HIGH RISK',
+        levelClass: 'high-risk',
+        time: '12 mins ago',
+        desc: 'Landslide risk detected on NH-102A (Guwahati-Imphal Highway segment). Rerouting recommended.'
+    },
+    {
+        id: 2,
+        level: 'MEDIUM RISK',
+        levelClass: 'medium-risk',
+        time: '45 mins ago',
+        desc: 'Heavy rainfall expected in next 3 hours along Silchar corridor. Expect speed drops.'
+    },
+    {
+        id: 3,
+        level: 'WARNING SOLVED',
+        levelClass: 'resolved',
+        time: '2 hours ago',
+        desc: 'Road blockage cleared on Route B (Guwahati-Tezpur Bypass). Regular transit speeds restored.'
+    },
+    {
+        id: 4,
+        level: 'INFO',
+        levelClass: 'info',
+        time: '4 hours ago',
+        desc: 'Weather conditions normal across central Assam and Shillong Plateau.'
+    }
+];
+
 export default function App() {
     // Application state
     const [missions, setMissions] = useState([]);
@@ -134,6 +287,7 @@ export default function App() {
     const fetchMissions = async () => {
         try {
             const res = await fetch('/api/missions');
+            if (!res.ok) throw new Error('Fetch failed');
             const data = await res.json();
             setMissions(data);
             if (data.length > 0) {
@@ -141,17 +295,21 @@ export default function App() {
                 setActiveMissionId(initialActive ? initialActive.id : data[0].id);
             }
         } catch (err) {
-            console.error('Error fetching missions:', err);
+            console.warn('Backend API `/api/missions` unreachable. Falling back to local frontend seed data:', err.message);
+            setMissions(fallbackMissions);
+            setActiveMissionId('MED-1024');
         }
     };
 
     const fetchAlerts = async () => {
         try {
             const res = await fetch('/api/alerts');
+            if (!res.ok) throw new Error('Fetch failed');
             const data = await res.json();
             setAlerts(data);
         } catch (err) {
-            console.error('Error fetching alerts:', err);
+            console.warn('Backend API `/api/alerts` unreachable. Falling back to local frontend alerts:', err.message);
+            setAlerts(fallbackAlerts);
         }
     };
 
