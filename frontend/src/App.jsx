@@ -95,6 +95,32 @@ const getBearing = (start, end) => {
     const brng = Math.atan2(y, x) * 180 / Math.PI;
     return (brng + 360) % 360;
 };
+
+const osmStyle = {
+    version: 8,
+    sources: {
+        'osm-tiles': {
+            type: 'raster',
+            tiles: [
+                'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'
+            ],
+            tileSize: 256,
+            attribution: '© OpenStreetMap contributors'
+        }
+    },
+    layers: [
+        {
+            id: 'osm-tiles-layer',
+            type: 'raster',
+            source: 'osm-tiles',
+            minzoom: 0,
+            maxzoom: 19
+        }
+    ]
+};
+
 import {
     LayoutDashboard, Briefcase, MapPin, Map, Navigation, AlertTriangle, 
     BarChart3, FileText, Settings, ChevronDown, Menu, X, CloudRain, 
@@ -318,6 +344,14 @@ export default function App() {
         traffic: false,
         disruptions: false
     });
+    const [mapLoadError, setMapLoadError] = useState(null);
+
+    const handleMapRetry = () => {
+        setMapLoadError(null);
+        if (mapRef.current) {
+            mapRef.current.setStyle('https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json');
+        }
+    };
 
     // Active Mission configuration
     const activeMission = missions.find(m => m.id === activeMissionId) || missions[0];
@@ -414,9 +448,9 @@ export default function App() {
         }
     };
 
-    // Initialize MapLibre GL Map
+    // Initialize MapLibre GL Map with Failover & Navigation Lifecycle
     useEffect(() => {
-        if (!mapContainerRef.current) return;
+        if (currentTab !== 'home' || !mapContainerRef.current) return;
 
         const map = new maplibregl.Map({
             container: mapContainerRef.current,
@@ -430,7 +464,38 @@ export default function App() {
 
         mapRef.current = map;
 
+        // Custom map error handling & logging
+        map.on('error', (e) => {
+            console.error('MapLibre error encountered:', e.error || e);
+            
+            // Check if style failed to load
+            if (!map.isStyleLoaded()) {
+                setMapLoadError('Primary map style failed to load. Loading fallback local OSM tiles...');
+                try {
+                    map.setStyle(osmStyle);
+                } catch (err) {
+                    console.error('Fallback style application failed:', err);
+                }
+            }
+        });
+
+        // Failover connection timeout: if style does not load within 5s, switch to OSM
+        const styleTimeout = setTimeout(() => {
+            if (!map.isStyleLoaded()) {
+                console.warn('Style server connection timeout. Initiating local OpenStreetMap raster tiles fallback...');
+                setMapLoadError('Basemap style server timed out. Loaded OpenStreetMap fallback.');
+                try {
+                    map.setStyle(osmStyle);
+                } catch (err) {
+                    console.error('Timeout fallback style application failed:', err);
+                }
+            }
+        }, 5000);
+
         map.on('load', () => {
+            clearTimeout(styleTimeout);
+            console.log('NE-RouteIQ MapLibre basemap style loaded successfully');
+
             // Safe route segment
             map.addSource('route-safe', {
                 type: 'geojson',
@@ -527,15 +592,35 @@ export default function App() {
             });
 
             setIsStyleLoaded(true);
+            
+            // Resize handler immediately on mount to ensure proper dimension mapping
+            setTimeout(() => {
+                if (mapRef.current) mapRef.current.resize();
+            }, 100);
         });
 
         return () => {
+            clearTimeout(styleTimeout);
             if (mapRef.current) {
                 mapRef.current.remove();
                 mapRef.current = null;
             }
+            setIsStyleLoaded(false);
+            mapVehicleMarkerRef.current = null;
+            mapOriginMarkerRef.current = null;
+            mapDestMarkerRef.current = null;
         };
-    }, []);
+    }, [currentTab]);
+
+    // Trigger map resize when sidebar toggles or tab shifts
+    useEffect(() => {
+        if (mapRef.current) {
+            const timer = setTimeout(() => {
+                if (mapRef.current) mapRef.current.resize();
+            }, 300);
+            return () => clearTimeout(timer);
+        }
+    }, [isSidebarOpen, currentTab]);
 
     // 2D / 3D Toggle
     const toggle2D3D = () => {
@@ -1176,7 +1261,38 @@ export default function App() {
 
                                 <div className="tactical-map-viewport" style={{ padding: 0, height: '480px' }}>
                                     {/* Map container element for MapLibre */}
-                                    <div ref={mapContainerRef} className="maplibre-map-container" style={{ width: '100%', height: '100%' }}></div>
+                                    <div ref={mapContainerRef} className="maplibre-map-container" style={{ width: '100%', height: '100%', position: 'relative' }}></div>
+                                    
+                                    {/* Map Connection Failure Failover Overlay */}
+                                    {mapLoadError && (
+                                        <div style={{
+                                            position: 'absolute',
+                                            top: 0,
+                                            left: 0,
+                                            width: '100%',
+                                            height: '100%',
+                                            backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                                            zIndex: 50,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            flexDirection: 'column',
+                                            padding: '24px',
+                                            textAlign: 'center',
+                                            backdropFilter: 'blur(4px)'
+                                        }}>
+                                            <AlertTriangle style={{ width: 44, height: 44, color: '#F59E0B', marginBottom: '16px' }} />
+                                            <h4 style={{ color: '#F8FAFC', marginBottom: '8px', fontSize: '1.05rem', fontWeight: 600 }}>Map Server Connection Weak</h4>
+                                            <p style={{ color: '#94A3B8', fontSize: '0.82rem', marginBottom: '16px', maxWidth: '320px', lineHeight: '1.4' }}>{mapLoadError}</p>
+                                            <button 
+                                                className="btn btn-sm btn-primary" 
+                                                onClick={handleMapRetry}
+                                                style={{ padding: '6px 16px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 500 }}
+                                            >
+                                                Retry Connection
+                                            </button>
+                                        </div>
+                                    )}
                                     
                                     {/* Tactical scan-line overlay for GIS styling */}
                                     <div className="map-scan-line"></div>
