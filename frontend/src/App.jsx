@@ -329,6 +329,7 @@ export default function App() {
     const mapVehicleMarkerRef = useRef(null);
     const mapOriginMarkerRef = useRef(null);
     const mapDestMarkerRef = useRef(null);
+    const speedRef = useRef(42);
     
     // MapLibre states
     const [is3D, setIs3D] = useState(true);
@@ -367,13 +368,16 @@ export default function App() {
         if (!activeMission) return;
         
         setSpeedFluct(activeMission.speed);
+        speedRef.current = activeMission.speed;
         setDistLeft(activeMission.distance);
         animProgressRef.current = activeMission.progress / 100;
 
         const interval = setInterval(() => {
             if (activeMission.progress > 0 && activeMission.progress < 100) {
                 const diff = Math.floor(Math.random() * 5) - 2;
-                setSpeedFluct(prev => Math.max(25, activeMission.speed + diff));
+                const nextSpeed = Math.max(25, activeMission.speed + diff);
+                setSpeedFluct(nextSpeed);
+                speedRef.current = nextSpeed;
 
                 setDistLeft(prev => {
                     const parsed = parseFloat(prev);
@@ -384,6 +388,7 @@ export default function App() {
                 });
             } else {
                 setSpeedFluct(activeMission.speed);
+                speedRef.current = activeMission.speed;
                 setDistLeft(activeMission.distance);
             }
         }, 3000);
@@ -452,13 +457,24 @@ export default function App() {
     useEffect(() => {
         if (currentTab !== 'home' || !mapContainerRef.current) return;
 
+        const maptilerKey = import.meta.env.VITE_MAPTILER_KEY || '';
+        const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
+        
+        let styleUrl = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
+        if (mapboxToken) {
+            maplibregl.accessToken = mapboxToken;
+            styleUrl = 'mapbox://styles/mapbox/streets-v11';
+        } else if (maptilerKey) {
+            styleUrl = `https://api.maptiler.com/maps/hybrid/style.json?key=${maptilerKey}`;
+        }
+
         const map = new maplibregl.Map({
             container: mapContainerRef.current,
-            style: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
-            center: [92.8, 25.6], // Centered in North-East India
-            zoom: 6.6,
-            pitch: 45, // Tilted 3D view
-            bearing: -10,
+            style: styleUrl,
+            center: [93.0, 25.5], // Centered in North-East India
+            zoom: 6.0,
+            pitch: 50, // 3D perspective angle
+            bearing: -10, // Slight navigation bearing angle
             antialias: true
         });
 
@@ -495,6 +511,47 @@ export default function App() {
         map.on('load', () => {
             clearTimeout(styleTimeout);
             console.log('NE-RouteIQ MapLibre basemap style loaded successfully');
+
+            // Add 3D elevation source and terrain mesh
+            if (maptilerKey) {
+                map.addSource('terrain-source', {
+                    type: 'raster-dem',
+                    url: `https://api.maptiler.com/tiles/terrain-rgb/tiles.json?key=${maptilerKey}`,
+                    tileSize: 256
+                });
+                map.setTerrain({ source: 'terrain-source', exaggeration: 1.5 });
+            } else if (mapboxToken) {
+                map.addSource('terrain-source', {
+                    type: 'raster-dem',
+                    url: 'mapbox://mapbox.mapbox-terrain-dem-v1',
+                    tileSize: 256
+                });
+                map.setTerrain({ source: 'terrain-source', exaggeration: 1.5 });
+            } else {
+                // Free, open-source high-resolution AWS Terrarium RGB-DEM tiles
+                map.addSource('terrain-source', {
+                    type: 'raster-dem',
+                    tiles: [
+                        'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'
+                    ],
+                    encoding: 'terrarium',
+                    tileSize: 256,
+                    maxzoom: 15
+                });
+                map.setTerrain({ source: 'terrain-source', exaggeration: 2.0 });
+                
+                // Add natural mountain hillshading layer
+                map.addLayer({
+                    id: 'hillshade-layer',
+                    type: 'hillshade',
+                    source: 'terrain-source',
+                    paint: {
+                        'hillshade-shadow-color': '#0F172A',
+                        'hillshade-illumination-direction': 315,
+                        'hillshade-exaggeration': 0.45
+                    }
+                });
+            }
 
             // Safe route segment
             map.addSource('route-safe', {
@@ -628,23 +685,33 @@ export default function App() {
         const next3D = !is3D;
         setIs3D(next3D);
         if (next3D) {
-            mapRef.current.easeTo({ pitch: 45, bearing: -10, duration: 1000 });
+            mapRef.current.easeTo({ pitch: 50, bearing: -10, duration: 1000 });
+            if (mapRef.current.getSource('terrain-source')) {
+                mapRef.current.setTerrain({ source: 'terrain-source', exaggeration: 2.0 });
+            }
         } else {
             mapRef.current.easeTo({ pitch: 0, bearing: 0, duration: 1000 });
+            mapRef.current.setTerrain(null); // Disable 3D terrain mesh
         }
     };
 
-    // Recenter map
+    // Recenter map using smooth bounds fitting
     const recenterMap = () => {
         if (!mapRef.current || !activeMission) return;
-        const coords = missionRouteCoords[activeMissionId] || missionRouteCoords['MED-1024'];
-        const routeCenter = coords[Math.floor(coords.length / 2)];
-        mapRef.current.easeTo({
-            center: isDisrupted && activeMissionId === 'MED-1024' ? [93.5, 25.2] : routeCenter,
-            zoom: activeMissionId === 'MED-1024' ? 6.6 : 7.2,
-            pitch: is3D ? 45 : 0,
-            bearing: is3D ? -10 : 0,
-            duration: 1000
+        const coords = isDisrupted && activeMissionId === 'MED-1024' 
+            ? alternativeRouteCoords 
+            : (missionRouteCoords[activeMissionId] || missionRouteCoords['MED-1024']);
+            
+        const bounds = coords.reduce((acc, coord) => {
+            return acc.extend(coord);
+        }, new maplibregl.LngLatBounds(coords[0], coords[0]));
+        
+        mapRef.current.fitBounds(bounds, {
+            padding: { top: 80, bottom: 80, left: 60, right: 60 },
+            maxZoom: 9.5,
+            duration: 1500,
+            pitch: is3D ? 50 : 0,
+            bearing: is3D ? -10 : 0
         });
     };
 
@@ -690,6 +757,25 @@ export default function App() {
 
         const coords = missionRouteCoords[activeMissionId] || missionRouteCoords['MED-1024'];
         updateMapMarkers(coords, activeMission);
+
+        // Fit map camera bounds on initial style load or mission switch
+        if (mapRef.current && isStyleLoaded) {
+            const currentRouteCoords = isDisrupted && activeMissionId === 'MED-1024' 
+                ? alternativeRouteCoords 
+                : coords;
+                
+            const bounds = currentRouteCoords.reduce((acc, coord) => {
+                return acc.extend(coord);
+            }, new maplibregl.LngLatBounds(currentRouteCoords[0], currentRouteCoords[0]));
+            
+            mapRef.current.fitBounds(bounds, {
+                padding: { top: 80, bottom: 80, left: 60, right: 60 },
+                maxZoom: 9.5,
+                duration: 1500,
+                pitch: is3D ? 50 : 0,
+                bearing: is3D ? -10 : 0
+            });
+        }
 
         // Update layers visibility based on checkbox selection
         if (mapRef.current.getLayer('route-safe-layer')) {
@@ -774,7 +860,7 @@ export default function App() {
 
             const vehicleLngLat = getCoordinatesAtProgress(coords, animProgressRef.current);
 
-            // Update Vehicle Marker position
+            // Update Vehicle Marker position & details
             if (mapVehicleMarkerRef.current) {
                 mapVehicleMarkerRef.current.setLngLat(vehicleLngLat);
                 
@@ -783,25 +869,37 @@ export default function App() {
                 const bearing = getBearing(coords[currIndex], coords[nextIndex]);
                 
                 const el = mapVehicleMarkerRef.current.getElement();
-                const svg = el.querySelector('.truck-marker-svg');
+                
+                // Rotate truck SVG inside the circle
+                const svg = el.querySelector('.premium-truck-svg');
                 if (svg) {
                     svg.style.transform = `rotate(${bearing - 90}deg)`;
                 }
+                
+                // Update live speed display on the marker badge
+                const speedText = el.querySelector('.badge-speed');
+                if (speedText) {
+                    speedText.textContent = `${speedRef.current} km/h`;
+                }
             } else {
                 const el = document.createElement('div');
-                el.className = 'vehicle-marker-truck';
+                el.className = 'vehicle-marker-truck-premium';
                 el.innerHTML = `
-                    <div class="truck-marker-container">
-                        <div class="truck-marker-pulse"></div>
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="truck-marker-svg" style="transform: rotate(0deg); width:18px; height:18px; color:#2563EB;">
-                            <rect x="1" y="3" width="15" height="13" rx="2" ry="2" fill="#2563EB"></rect>
-                            <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" fill="#1D4ED8"></polygon>
-                            <circle cx="5.5" cy="18.5" r="2.5" fill="#1E293B"></circle>
-                            <circle cx="18.5" cy="18.5" r="2.5" fill="#1E293B"></circle>
+                    <div class="premium-truck-badge">
+                        <span class="badge-header">${activeMission.id}</span>
+                        <span class="badge-speed">${speedRef.current} km/h</span>
+                    </div>
+                    <div class="premium-truck-circle">
+                        <div class="live-dot-indicator"></div>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="premium-truck-svg" style="transform: rotate(0deg); width:16px; height:16px; color:#FFFFFF;">
+                            <rect x="1" y="3" width="15" height="13" rx="2" ry="2" fill="white"></rect>
+                            <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" fill="white"></polygon>
+                            <circle cx="5.5" cy="18.5" r="2.5" fill="#2563EB" stroke="white" stroke-width="1.5"></circle>
+                            <circle cx="18.5" cy="18.5" r="2.5" fill="#2563EB" stroke="white" stroke-width="1.5"></circle>
                         </svg>
                     </div>
                 `;
-                const popup = new maplibregl.Popup({ offset: 20 }).setHTML(`
+                const popup = new maplibregl.Popup({ offset: 25 }).setHTML(`
                     <div style="font-family: sans-serif; padding: 5px; color: #0F172A;">
                         <h4 style="margin: 0 0 4px 0; color: #2563EB; font-size: 0.9rem;">${activeMission.id}</h4>
                         <p style="margin: 0 0 2px 0; font-size: 0.8rem;"><strong>Manifest:</strong> ${activeMission.cargo}</p>
