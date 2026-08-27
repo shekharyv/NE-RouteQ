@@ -354,6 +354,266 @@ export default function App() {
         }
     };
 
+    // Routes MapLibre Refs
+    const routesMapContainerRef = useRef(null);
+    const routesMapRef = useRef(null);
+    const [isRoutesStyleLoaded, setIsRoutesStyleLoaded] = useState(false);
+
+    // Routes tab states
+    const [routesSearchLoading, setRoutesSearchLoading] = useState(false);
+    const [routesSearchProgress, setRoutesSearchProgress] = useState(0);
+    const [routesSearchStatus, setRoutesSearchStatus] = useState('');
+    const [routesGenerated, setRoutesGenerated] = useState(false);
+    const [selectedRouteId, setSelectedRouteId] = useState('B');
+    const [isRoutesDisrupted, setIsRoutesDisrupted] = useState(false);
+    const [plannerMission, setPlannerMission] = useState('MED-1024');
+    const [plannerOrigin, setPlannerOrigin] = useState('Guwahati, Assam');
+    const [plannerDestination, setPlannerDestination] = useState('Imphal, Manipur');
+    const [plannerVehicle, setPlannerVehicle] = useState('Truck');
+    const [plannerPriority, setPlannerPriority] = useState('Critical');
+    const [plannerCargo, setPlannerCargo] = useState('Medical Supplies');
+    const [routesHistory, setRoutesHistory] = useState([
+        { id: 'RH-102', mission: 'MED-1024', route: 'Route B', from: 'Guwahati', to: 'Imphal', status: 'AI Recommended', date: 'Today' },
+        { id: 'RH-101', mission: 'FD-2048', route: 'Route C', from: 'Silchar', to: 'Aizawl', status: 'Completed', date: 'Yesterday' },
+        { id: 'RH-100', mission: 'DR-3056', route: 'Route A', from: 'Jorhat', to: 'Tezpur', status: 'Re-routed', date: '2 days ago' }
+    ]);
+
+    const triggerGenerateRoutes = () => {
+        setRoutesSearchLoading(true);
+        setRoutesSearchProgress(0);
+        setRoutesSearchStatus('Analyzing road conditions...');
+
+        const steps = [
+            { progress: 25, status: 'Evaluating terrain and mountain accessibility...' },
+            { progress: 50, status: 'Checking weather exposure corridors...' },
+            { progress: 75, status: 'Evaluating landslide disruption risks...' },
+            { progress: 100, status: 'Generating route alternatives...' }
+        ];
+
+        let currentStep = 0;
+        const interval = setInterval(() => {
+            if (currentStep < steps.length) {
+                setRoutesSearchProgress(steps[currentStep].progress);
+                setRoutesSearchStatus(steps[currentStep].status);
+                currentStep++;
+            } else {
+                clearInterval(interval);
+                setRoutesSearchLoading(false);
+                setRoutesGenerated(true);
+                setSelectedRouteId('B');
+            }
+        }, 800);
+    };
+
+    const handleQuickRouteSelect = (origin, dest, cargo, mission) => {
+        setPlannerOrigin(origin);
+        setPlannerDestination(dest);
+        setPlannerCargo(cargo);
+        setPlannerMission(mission);
+        setRoutesGenerated(false);
+    };
+
+    // Initialize MapLibre GL Map for Routes Page
+    useEffect(() => {
+        if (currentTab !== 'routes' || !routesMapContainerRef.current) return;
+
+        const maptilerKey = import.meta.env.VITE_MAPTILER_KEY || '';
+        const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
+        
+        let styleUrl = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
+        if (mapboxToken) {
+            maplibregl.accessToken = mapboxToken;
+            styleUrl = 'mapbox://styles/mapbox/streets-v11';
+        } else if (maptilerKey) {
+            styleUrl = `https://api.maptiler.com/maps/hybrid/style.json?key=${maptilerKey}`;
+        }
+
+        const map = new maplibregl.Map({
+            container: routesMapContainerRef.current,
+            style: styleUrl,
+            center: [93.0, 25.5],
+            zoom: 6.0,
+            pitch: 50,
+            bearing: -10,
+            antialias: true
+        });
+
+        routesMapRef.current = map;
+
+        map.on('error', (e) => {
+            console.error('Routes MapLibre error:', e.error || e);
+            if (!map.isStyleLoaded()) {
+                map.setStyle(osmStyle);
+            }
+        });
+
+        map.on('load', () => {
+            console.log('Routes map loaded');
+            
+            // Add DEM terrain
+            if (maptilerKey) {
+                map.addSource('routes-terrain', {
+                    type: 'raster-dem',
+                    url: `https://api.maptiler.com/tiles/terrain-rgb/tiles.json?key=${maptilerKey}`,
+                    tileSize: 256
+                });
+                map.setTerrain({ source: 'routes-terrain', exaggeration: 1.5 });
+            } else if (mapboxToken) {
+                map.addSource('routes-terrain', {
+                    type: 'raster-dem',
+                    url: 'mapbox://mapbox.mapbox-terrain-dem-v1',
+                    tileSize: 256
+                });
+                map.setTerrain({ source: 'routes-terrain', exaggeration: 1.5 });
+            } else {
+                map.addSource('routes-terrain', {
+                    type: 'raster-dem',
+                    tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
+                    encoding: 'terrarium',
+                    tileSize: 256,
+                    maxzoom: 15
+                });
+                map.setTerrain({ source: 'routes-terrain', exaggeration: 2.0 });
+                map.addLayer({
+                    id: 'routes-hillshade',
+                    type: 'hillshade',
+                    source: 'routes-terrain',
+                    paint: { 'hillshade-exaggeration': 0.45 }
+                });
+            }
+
+            // Route A source & layer (thin dashed)
+            map.addSource('route-a-src', {
+                type: 'geojson',
+                data: { type: 'Feature', geometry: { type: 'LineString', coordinates: missionRouteCoords['MED-1024'] } }
+            });
+            map.addLayer({
+                id: 'route-a-layer',
+                type: 'line',
+                source: 'route-a-src',
+                paint: { 'line-color': '#EF4444', 'line-width': 3, 'line-opacity': 0.6 }
+            });
+
+            // Route B source & layer (thick AI recommended)
+            map.addSource('route-b-src', {
+                type: 'geojson',
+                data: { type: 'Feature', geometry: { type: 'LineString', coordinates: missionRouteCoords['MED-1024'] } }
+            });
+            map.addLayer({
+                id: 'route-b-layer',
+                type: 'line',
+                source: 'route-b-src',
+                paint: { 'line-color': '#2563EB', 'line-width': 6, 'line-opacity': 0.95 }
+            });
+
+            // Route C source & layer (alternative green)
+            map.addSource('route-c-src', {
+                type: 'geojson',
+                data: { type: 'Feature', geometry: { type: 'LineString', coordinates: alternativeRouteCoords } }
+            });
+            map.addLayer({
+                id: 'route-c-layer',
+                type: 'line',
+                source: 'route-c-src',
+                paint: { 'line-color': '#10B981', 'line-width': 4, 'line-opacity': 0.7 }
+            });
+
+            setIsRoutesStyleLoaded(true);
+
+            // Zoom bounds
+            const bounds = missionRouteCoords['MED-1024'].reduce((acc, coord) => {
+                return acc.extend(coord);
+            }, new maplibregl.LngLatBounds(missionRouteCoords['MED-1024'][0], missionRouteCoords['MED-1024'][0]));
+            map.fitBounds(bounds, { padding: 60, duration: 1000 });
+
+            // Add Guwahati marker
+            const guwEl = document.createElement('div');
+            guwEl.className = 'origin-marker-pin';
+            guwEl.innerHTML = `<div class="pin-marker green"><div class="pin-dot"></div></div>`;
+            const guwPopup = new maplibregl.Popup({ offset: 15 }).setHTML(`
+                <div style="font-family: sans-serif; padding: 5px; color: #0F172A;">
+                    <h4 style="margin: 0 0 4px 0; color: #22C55E; font-size: 0.9rem;">Guwahati, Assam</h4>
+                    <p style="margin: 0; font-size: 0.8rem; color: #64748B;">Mission Origin Node</p>
+                </div>
+            `);
+            new maplibregl.Marker(guwEl).setLngLat([91.7362, 26.1158]).setPopup(guwPopup).addTo(map);
+
+            // Add Imphal marker
+            const impEl = document.createElement('div');
+            impEl.className = 'dest-marker-pin';
+            impEl.innerHTML = `<div class="pin-marker red"><div class="pin-dot"></div></div>`;
+            const impPopup = new maplibregl.Popup({ offset: 15 }).setHTML(`
+                <div style="font-family: sans-serif; padding: 5px; color: #0F172A;">
+                    <h4 style="margin: 0 0 4px 0; color: #EF4444; font-size: 0.9rem;">Imphal, Manipur</h4>
+                    <p style="margin: 0; font-size: 0.8rem; color: #64748B;">Mission Destination Node</p>
+                </div>
+            `);
+            new maplibregl.Marker(impEl).setLngLat([93.9368, 24.8170]).setPopup(impPopup).addTo(map);
+        });
+
+        return () => {
+            if (routesMapRef.current) {
+                routesMapRef.current.remove();
+                routesMapRef.current = null;
+            }
+            setIsRoutesStyleLoaded(false);
+        };
+    }, [currentTab]);
+
+    // Update lines highlight style
+    useEffect(() => {
+        if (!routesMapRef.current || !isRoutesStyleLoaded) return;
+
+        const map = routesMapRef.current;
+        try {
+            if (selectedRouteId === 'A') {
+                map.setPaintProperty('route-a-layer', 'line-width', 7);
+                map.setPaintProperty('route-a-layer', 'line-opacity', 0.95);
+                map.setPaintProperty('route-b-layer', 'line-width', 3);
+                map.setPaintProperty('route-b-layer', 'line-opacity', 0.35);
+                map.setPaintProperty('route-c-layer', 'line-width', 3);
+                map.setPaintProperty('route-c-layer', 'line-opacity', 0.35);
+            } else if (selectedRouteId === 'B') {
+                map.setPaintProperty('route-a-layer', 'line-width', 3);
+                map.setPaintProperty('route-a-layer', 'line-opacity', 0.35);
+                map.setPaintProperty('route-b-layer', 'line-width', 7);
+                map.setPaintProperty('route-b-layer', 'line-opacity', 0.95);
+                map.setPaintProperty('route-c-layer', 'line-width', 3);
+                map.setPaintProperty('route-c-layer', 'line-opacity', 0.35);
+            } else if (selectedRouteId === 'C') {
+                map.setPaintProperty('route-a-layer', 'line-width', 3);
+                map.setPaintProperty('route-a-layer', 'line-opacity', 0.35);
+                map.setPaintProperty('route-b-layer', 'line-width', 3);
+                map.setPaintProperty('route-b-layer', 'line-opacity', 0.35);
+                map.setPaintProperty('route-c-layer', 'line-width', 7);
+                map.setPaintProperty('route-c-layer', 'line-opacity', 0.95);
+            }
+        } catch (err) {
+            console.error('Error applying route paints:', err);
+        }
+    }, [selectedRouteId, isRoutesStyleLoaded]);
+
+    // Handle Routes Rerouting Simulation
+    useEffect(() => {
+        if (!routesMapRef.current || !isRoutesStyleLoaded) return;
+        const map = routesMapRef.current;
+        try {
+            if (isRoutesDisrupted) {
+                // Route B becomes blocked red
+                map.setPaintProperty('route-b-layer', 'line-color', '#EF4444');
+                // Route C becomes AI Recommended (thick blue)
+                map.setPaintProperty('route-c-layer', 'line-color', '#2563EB');
+                setSelectedRouteId('C');
+            } else {
+                map.setPaintProperty('route-b-layer', 'line-color', '#2563EB');
+                map.setPaintProperty('route-c-layer', 'line-color', '#10B981');
+                setSelectedRouteId('B');
+            }
+        } catch (err) {
+            console.error('Error in disruption paint update:', err);
+        }
+    }, [isRoutesDisrupted, isRoutesStyleLoaded]);
+
     // Active Mission configuration
     const activeMission = missions.find(m => m.id === activeMissionId) || missions[0];
 
@@ -1121,7 +1381,7 @@ export default function App() {
                         <Briefcase />
                         <span>Missions</span>
                     </a>
-                    <a href="#" className="nav-item">
+                    <a href="#" className={`nav-item ${currentTab === 'routes' ? 'active' : ''}`} onClick={() => { setCurrentTab('routes'); setIsSidebarOpen(false); }}>
                         <MapPin />
                         <span>Routes</span>
                     </a>
@@ -2203,6 +2463,445 @@ export default function App() {
                                     <button className="btn btn-secondary" onClick={() => alert('Next Page')} style={{ minHeight: '44px', minWidth: '44px' }}>→</button>
                                 </div>
                             )}
+                        </div>
+                    </main>
+                )}
+
+                {currentTab === 'routes' && (
+                    <main className="main-content">
+                        {/* ROUTES HERO HEADER */}
+                        <section className="hero-section">
+                            <div className="hero-left">
+                                <h2 className="hero-title">Routes</h2>
+                                <p className="hero-subtitle">Plan, compare and optimize logistics routes with AI.</p>
+                            </div>
+                            <div className="hero-right flex-row gap-sm">
+                                <button className="btn btn-primary" onClick={() => { setRoutesGenerated(false); setIsRoutesDisrupted(false); }}>
+                                    <Plus style={{ width: 16, height: 16 }} />
+                                    <span>Plan New Route</span>
+                                </button>
+                                <button className="btn btn-secondary" onClick={() => alert('Viewing route optimization history logs...')}>
+                                    <Clock style={{ width: 16, height: 16 }} />
+                                    <span>Route History</span>
+                                </button>
+                            </div>
+                        </section>
+
+                        {/* ROUTE PLANNER CARD */}
+                        <div className="planner-grid mt-6">
+                            <div className="card planner-card">
+                                <div className="card-header">
+                                    <div className="header-title-wrap">
+                                        <h3>Route Planner</h3>
+                                        <span className="card-subtitle">Find the safest and most accessible route for your mission.</span>
+                                    </div>
+                                </div>
+                                <div className="card-body">
+                                    <div className="planner-fields-grid">
+                                        <div className="form-group">
+                                            <label>MISSION</label>
+                                            <select className="form-select" value={plannerMission} onChange={(e) => setPlannerMission(e.target.value)}>
+                                                <option value="MED-1024">MED-1024 · Medicine</option>
+                                                <option value="FD-2048">FD-2048 · Food Delivery</option>
+                                                <option value="DR-3056">DR-3056 · Disaster Relief</option>
+                                            </select>
+                                        </div>
+                                        <div className="form-group">
+                                            <label>ORIGIN</label>
+                                            <input type="text" className="form-input" value={plannerOrigin} onChange={(e) => setPlannerOrigin(e.target.value)} placeholder="📍 Guwahati, Assam" />
+                                        </div>
+                                        <div className="form-group">
+                                            <label>DESTINATION</label>
+                                            <input type="text" className="form-input" value={plannerDestination} onChange={(e) => setPlannerDestination(e.target.value)} placeholder="📍 Imphal, Manipur" />
+                                        </div>
+                                        <div className="form-group">
+                                            <label>VEHICLE</label>
+                                            <select className="form-select" value={plannerVehicle} onChange={(e) => setPlannerVehicle(e.target.value)}>
+                                                <option value="Truck">🚚 Heavy Truck</option>
+                                                <option value="Drone">🚁 Cargo Drone</option>
+                                                <option value="Helicopter">🚁 Helicopter</option>
+                                            </select>
+                                        </div>
+                                        <div className="form-group">
+                                            <label>PRIORITY</label>
+                                            <select className="form-select" value={plannerPriority} onChange={(e) => setPlannerPriority(e.target.value)}>
+                                                <option value="Critical">🔴 Critical Priority</option>
+                                                <option value="High">🟠 High Priority</option>
+                                                <option value="Medium">🟡 Medium Priority</option>
+                                                <option value="Low">🟢 Low Priority</option>
+                                            </select>
+                                        </div>
+                                        <div className="form-group">
+                                            <label>CARGO MANIFEST</label>
+                                            <input type="text" className="form-input" value={plannerCargo} onChange={(e) => setPlannerCargo(e.target.value)} placeholder="Manifest details" />
+                                        </div>
+                                    </div>
+                                    <button className="btn btn-primary btn-full mt-4 btn-lg" onClick={triggerGenerateRoutes} disabled={routesSearchLoading}>
+                                        <Zap style={{ width: 18, height: 18 }} />
+                                        <span>{routesSearchLoading ? 'Analyzing Smart Routes...' : 'Generate Smart Routes →'}</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* QUICK ROUTE SELECTION OPTIONS */}
+                        <div className="recent-routes-shortcuts mt-4">
+                            <span className="shortcut-label">Recent Routes:</span>
+                            <div className="shortcuts-list">
+                                <button className="shortcut-chip" onClick={() => handleQuickRouteSelect('Guwahati, Assam', 'Imphal, Manipur', 'Medical Supplies', 'MED-1024')}>Guwahati → Imphal</button>
+                                <button className="shortcut-chip" onClick={() => handleQuickRouteSelect('Silchar, Assam', 'Aizawl, Mizoram', 'Grains Manifest', 'FD-2048')}>Silchar → Aizawl</button>
+                                <button className="shortcut-chip" onClick={() => handleQuickRouteSelect('Dimapur, Nagaland', 'Kohima, Nagaland', 'Mountain Aid Kit', 'AG-4091')}>Dimapur → Kohima</button>
+                                <button className="shortcut-chip" onClick={() => handleQuickRouteSelect('Shillong, Meghalaya', 'Tura, Meghalaya', 'Relief Packages', 'CN-5012')}>Shillong → Tura</button>
+                            </div>
+                        </div>
+
+                        {/* LOADING SKELETON / PROGRESS BLOCK */}
+                        {routesSearchLoading && (
+                            <div className="card loading-analysis-card mt-6 p-6 text-center">
+                                <div className="loading-spinner-circle mb-4" style={{ width: '40px', height: '40px', border: '3px solid rgba(255,255,255,0.1)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 16px auto' }}></div>
+                                <h4 className="font-semibold text-main mb-2">{routesSearchStatus}</h4>
+                                <div className="progress-bar-container">
+                                    <div className="progress-bar-fill" style={{ width: `${routesSearchProgress}%` }}></div>
+                                </div>
+                                <span className="text-secondary font-sm mt-2 block">{routesSearchProgress}% Completed</span>
+                            </div>
+                        )}
+
+                        {/* EMPTY STATE BEFORE GENERATING */}
+                        {!routesGenerated && !routesSearchLoading && (
+                            <div className="card empty-planner-card mt-6 p-8 text-center">
+                                <MapPin style={{ width: 48, height: 48, color: 'var(--text-secondary)', margin: '0 auto 16px auto', opacity: 0.7 }} />
+                                <h3 className="font-semibold text-main mb-2">Plan your first smart route</h3>
+                                <p className="text-secondary mb-4 max-w-sm mx-auto font-sm">Enter a cargo manifest, origin and destination nodes above to calculate risk-aware AI route alternatives.</p>
+                                <button className="btn btn-primary" onClick={triggerGenerateRoutes}>
+                                    <Zap style={{ width: 14, height: 14 }} />
+                                    <span>Plan Guwahati → Imphal</span>
+                                </button>
+                            </div>
+                        )}
+
+                        {/* ROUTE COMPARISON RESULT PANEL */}
+                        {routesGenerated && !routesSearchLoading && (
+                            <div className="route-results-section mt-6">
+                                <div className="results-header mb-4">
+                                    <h3 className="section-title">AI Route Analysis</h3>
+                                    <span className="results-meta">Mission: {plannerMission} | {plannerOrigin} ⇄ {plannerDestination} | <strong className="text-primary">3 Routes Found</strong></span>
+                                </div>
+
+                                {/* THREE ROUTE CARDS GRID */}
+                                <div className="route-cards-grid">
+                                    {/* CARD A */}
+                                    <div className={`card route-option-card ${selectedRouteId === 'A' ? 'selected' : ''}`} onClick={() => setSelectedRouteId('A')}>
+                                        <div className="card-badge badge-gray">Fastest Route</div>
+                                        <div className="route-card-header">
+                                            <h4>Route A</h4>
+                                            <span className="route-badge-price">₹17,800</span>
+                                        </div>
+                                        <div className="route-stats-row">
+                                            <div className="route-stat-col">
+                                                <span className="stat-label">ETA</span>
+                                                <span className="stat-value text-main">7h 50m</span>
+                                            </div>
+                                            <div className="route-stat-col">
+                                                <span className="stat-label">Distance</span>
+                                                <span className="stat-value text-main">487 km</span>
+                                            </div>
+                                            <div className="route-stat-col">
+                                                <span className="stat-label">Risk</span>
+                                                <span className="stat-value text-danger font-bold">HIGH 🔴</span>
+                                            </div>
+                                        </div>
+                                        <div className="route-details-list">
+                                            <div className="detail-item"><span className="bullet">⚡</span> Accessibility: 58/100</div>
+                                            <div className="detail-item"><span className="bullet">⚡</span> Reliability: 62%</div>
+                                        </div>
+                                        <div className="why-warning mt-3">
+                                            <span className="warning-title font-semibold text-danger">⚠️ Why not recommended:</span>
+                                            <p className="warning-desc" style={{ fontSize: '0.72rem' }}>High disruption exposure risk, poor accessibility corridor, and higher active weather exposure.</p>
+                                        </div>
+                                        <button className="btn btn-secondary btn-full mt-4" onClick={(e) => { e.stopPropagation(); setSelectedRouteId('A'); }}>View Route</button>
+                                    </div>
+
+                                    {/* CARD B (AI RECOMMENDED HERO) */}
+                                    <div className={`card route-option-card recommended-hero ${selectedRouteId === 'B' ? 'selected' : ''}`} onClick={() => setSelectedRouteId('B')}>
+                                        <div className="card-badge badge-primary">⭐ AI RECOMMENDED</div>
+                                        <div className="route-card-header">
+                                            <h4>{isRoutesDisrupted ? 'Route B (Blocked)' : 'Route B (Smartest)'}</h4>
+                                            <span className="route-badge-price">₹19,200</span>
+                                        </div>
+                                        <div className="route-stats-row">
+                                            <div className="route-stat-col">
+                                                <span className="stat-label">ETA</span>
+                                                <span className="stat-value text-main">8h 40m</span>
+                                            </div>
+                                            <div className="route-stat-col">
+                                                <span className="stat-label">Distance</span>
+                                                <span className="stat-value text-main">512 km</span>
+                                            </div>
+                                            <div className="route-stat-col">
+                                                <span className="stat-label">Risk</span>
+                                                <span className={`stat-value font-bold ${isRoutesDisrupted ? 'text-danger' : 'text-success'}`}>
+                                                    {isRoutesDisrupted ? 'CRITICAL 🔴' : 'LOW 🟢'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="route-details-list">
+                                            <div className="detail-item"><span className="bullet">✓</span> Accessibility: {isRoutesDisrupted ? '42/100' : '86/100'}</div>
+                                            <div className="detail-item"><span className="bullet">✓</span> Reliability: {isRoutesDisrupted ? '28%' : '91%'}</div>
+                                        </div>
+                                        <div className="why-recommended mt-3">
+                                            <span className="recommended-title font-semibold text-primary">✓ Recommended because:</span>
+                                            <ul className="recommended-bullets" style={{ fontSize: '0.72rem' }}>
+                                                <li>Lower disruption risk across NH corridor</li>
+                                                <li>Superior heavy vehicle accessibility rating</li>
+                                                <li>More stable weather buffer corridor</li>
+                                                <li>Suitable manifest conditions for {plannerCargo}</li>
+                                            </ul>
+                                        </div>
+                                        <div className="hero-buttons flex-row gap-xs mt-4">
+                                            <button className="btn btn-primary flex-grow" onClick={(e) => { e.stopPropagation(); alert('Route selected! Manifest loaded.'); }}>Select Route</button>
+                                            <button className="btn btn-secondary" onClick={(e) => { e.stopPropagation(); setSelectedRouteId('B'); }}>View Map</button>
+                                        </div>
+                                    </div>
+
+                                    {/* CARD C */}
+                                    <div className={`card route-option-card ${selectedRouteId === 'C' ? 'selected' : ''}`} onClick={() => setSelectedRouteId('C')}>
+                                        <div className="card-badge badge-teal">Safest Alternative</div>
+                                        <div className="route-card-header">
+                                            <h4>Route C</h4>
+                                            <span className="route-badge-price">₹21,100</span>
+                                        </div>
+                                        <div className="route-stats-row">
+                                            <div className="route-stat-col">
+                                                <span className="stat-label">ETA</span>
+                                                <span className="stat-value text-main">9h 00m</span>
+                                            </div>
+                                            <div className="route-stat-col">
+                                                <span className="stat-label">Distance</span>
+                                                <span className="stat-value text-main">530 km</span>
+                                            </div>
+                                            <div className="route-stat-col">
+                                                <span className="stat-label">Risk</span>
+                                                <span className="stat-value text-success font-bold">LOW 🟢</span>
+                                            </div>
+                                        </div>
+                                        <div className="route-details-list">
+                                            <div className="detail-item"><span className="bullet">✓</span> Accessibility: 72/100</div>
+                                            <div className="detail-item"><span className="bullet">✓</span> Reliability: 88%</div>
+                                        </div>
+                                        <div className="why-warning mt-3">
+                                            <span className="warning-title font-semibold text-success">✓ Why alternative:</span>
+                                            <p className="warning-desc" style={{ fontSize: '0.72rem' }}>Very low disruption exposure, highly stable corridor, but incurs longer overall travel time.</p>
+                                        </div>
+                                        <div className="hero-buttons flex-row gap-xs mt-4">
+                                            <button className="btn btn-primary flex-grow" onClick={(e) => { e.stopPropagation(); alert('Route C Selected.'); }}>Select Route</button>
+                                            <button className="btn btn-secondary" onClick={(e) => { e.stopPropagation(); setSelectedRouteId('C'); }}>View Map</button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* MAP AND RISK ANALYSIS SIDE-BY-SIDE */}
+                                <div className="routes-map-split-grid mt-6">
+                                    {/* MAP CONTAINER CARD */}
+                                    <div className="card map-preview-card">
+                                        <div className="card-header">
+                                            <div className="header-title-wrap">
+                                                <h3>Interactive Route Profile</h3>
+                                                <span className="card-subtitle">Showing vector paths for Routes A, B & C over 3D terrain</span>
+                                            </div>
+                                            <div className="map-actions">
+                                                <button className={`btn btn-sm ${isRoutesDisrupted ? 'btn-danger animate-pulse' : 'btn-secondary'}`} onClick={() => setIsRoutesDisrupted(!isRoutesDisrupted)}>
+                                                    <AlertTriangle style={{ width: 14, height: 14 }} />
+                                                    <span>{isRoutesDisrupted ? 'Clear Landslide' : 'Simulate Landslide'}</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className="routes-map-viewport" style={{ position: 'relative', height: '420px', padding: 0 }}>
+                                            <div ref={routesMapContainerRef} style={{ width: '100%', height: '100%' }}></div>
+                                            <div className="map-scan-line"></div>
+                                            <div className="map-legend" style={{ zIndex: 10 }}>
+                                                <div className="legend-title">Routing Paths</div>
+                                                <div className="legend-grid">
+                                                    <div className="legend-item"><span className="legend-color red"></span><span className="legend-label">Route A</span></div>
+                                                    <div className="legend-item"><span className="legend-color blue"></span><span className="legend-label">Route B</span></div>
+                                                    <div className="legend-item"><span className="legend-color green"></span><span className="legend-label">Route C</span></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* RISK PANEL & ACCESSIBILITY BREAKDOWN */}
+                                    <div className="routes-metrics-panel">
+                                        {/* ACCESSIBILITY BREAKDOWN */}
+                                        <div className="card accessibility-breakdown-card p-4">
+                                            <div className="panel-header mb-3" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                <h4 className="font-bold text-main">Accessibility Score</h4>
+                                                <div className="ai-score-circular">
+                                                    <span className="ai-score-number">{selectedRouteId === 'B' ? '86' : selectedRouteId === 'C' ? '72' : '58'}</span>
+                                                    <span className="ai-score-label">AI SCORE</span>
+                                                </div>
+                                            </div>
+                                            <div className="progress-metrics-list">
+                                                <div className="metric-progress-item">
+                                                    <div className="progress-header">
+                                                        <span>Road Quality</span>
+                                                        <span className="font-semibold">{selectedRouteId === 'B' ? '88' : selectedRouteId === 'C' ? '78' : '50'}</span>
+                                                    </div>
+                                                    <div className="bar-track"><div className="bar-fill bg-success" style={{ width: `${selectedRouteId === 'B' ? 88 : selectedRouteId === 'C' ? 78 : 50}%` }}></div></div>
+                                                </div>
+                                                <div className="metric-progress-item">
+                                                    <div className="progress-header">
+                                                        <span>Terrain Safety</span>
+                                                        <span className="font-semibold">{selectedRouteId === 'B' ? '76' : selectedRouteId === 'C' ? '82' : '65'}</span>
+                                                    </div>
+                                                    <div className="bar-track"><div className="bar-fill bg-warning" style={{ width: `${selectedRouteId === 'B' ? 76 : selectedRouteId === 'C' ? 82 : 65}%` }}></div></div>
+                                                </div>
+                                                <div className="metric-progress-item">
+                                                    <div className="progress-header">
+                                                        <span>Weather Buffer</span>
+                                                        <span className="font-semibold">{selectedRouteId === 'B' ? '90' : selectedRouteId === 'C' ? '85' : '45'}</span>
+                                                    </div>
+                                                    <div className="bar-track"><div className="bar-fill bg-success" style={{ width: `${selectedRouteId === 'B' ? 90 : selectedRouteId === 'C' ? 85 : 45}%` }}></div></div>
+                                                </div>
+                                                <div className="metric-progress-item">
+                                                    <div className="progress-header">
+                                                        <span>Infrastructure</span>
+                                                        <span className="font-semibold">{selectedRouteId === 'B' ? '84' : selectedRouteId === 'C' ? '70' : '60'}</span>
+                                                    </div>
+                                                    <div className="bar-track"><div className="bar-fill bg-success" style={{ width: `${selectedRouteId === 'B' ? 84 : selectedRouteId === 'C' ? 70 : 60}%` }}></div></div>
+                                                </div>
+                                            </div>
+                                            <div className="tooltip-info mt-3 p-2 font-xs bg-slate-900 border border-slate-800 text-secondary rounded">
+                                                ℹ️ Accessibility score combines road quality, terrain slope index, active weather cells, support infrastructure and connectivity factors.
+                                            </div>
+                                        </div>
+
+                                        {/* AI EXPLANATION PREMIUM CARD */}
+                                        <div className="card ai-insight-panel-card p-4 mt-4" style={{ backgroundColor: 'rgba(37, 99, 235, 0.05)', borderColor: 'rgba(37, 99, 235, 0.2)' }}>
+                                            <div className="insight-header mb-2 flex-row gap-xs align-center">
+                                                <Zap className="text-secondary" style={{ width: 16, height: 16 }} />
+                                                <span className="font-bold text-secondary">🤖 AI Router Recommendations</span>
+                                            </div>
+                                            <p className="insight-desc font-sm text-secondary leading-relaxed" style={{ fontSize: '0.78rem' }}>
+                                                {selectedRouteId === 'B' 
+                                                    ? 'Route B is recommended because it bypasses landslide-prone sections of NH-29 while maintaining a high road-quality rating suitable for delicate medical cargo, saving 38% risk.'
+                                                    : selectedRouteId === 'C' 
+                                                        ? 'Route C offers the absolute highest terrain stability with a 0% active risk rating, but adds approximately 70 minutes of travel time compared to the primary corridor.'
+                                                        : 'Route A is the fastest corridor, but exposes logistics teams to high landslide blockages around Kohima heights. Travel is not recommended unless urgency outweighs risk.'
+                                                }
+                                            </p>
+                                            <div className="insight-highlights mt-3" style={{ display: 'flex', gap: '8px' }}>
+                                                <div className="highlight-tag"><span className="label">Risk Impact</span> <strong className="text-success" style={{ fontSize: '0.85rem' }}>-38%</strong></div>
+                                                <div className="highlight-tag"><span className="label">ETA Delta</span> <strong className="text-warning" style={{ fontSize: '0.85rem' }}>+50 min</strong></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* COMPARISON TABLE */}
+                                <div className="card comparison-table-card mt-6">
+                                    <div className="card-header">
+                                        <h3>Route Metrics Comparison</h3>
+                                    </div>
+                                    <div className="card-body p-0">
+                                        <div className="table-responsive">
+                                            <table className="comparison-table w-full">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Metric</th>
+                                                        <th>Route A (Fastest)</th>
+                                                        <th>Route B (Smartest)</th>
+                                                        <th>Route C (Safest)</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr>
+                                                        <td className="font-semibold text-main">ETA</td>
+                                                        <td className="text-success font-semibold">7h 50m</td>
+                                                        <td>8h 40m</td>
+                                                        <td>9h 00m</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td className="font-semibold text-main">Distance</td>
+                                                        <td className="text-success font-semibold">487 km</td>
+                                                        <td>512 km</td>
+                                                        <td>530 km</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td className="font-semibold text-main">Estimated Cost</td>
+                                                        <td className="text-success font-semibold">₹17,800</td>
+                                                        <td>₹19,200</td>
+                                                        <td>₹21,100</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td className="font-semibold text-main">Risk Index</td>
+                                                        <td className="text-danger font-bold">HIGH 🔴</td>
+                                                        <td className="text-success font-bold">LOW 🟢</td>
+                                                        <td className="text-success font-bold">LOW 🟢</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td className="font-semibold text-main">Accessibility Rating</td>
+                                                        <td>58/100</td>
+                                                        <td className="text-success font-bold">86/100 ⭐</td>
+                                                        <td>72/100</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td className="font-semibold text-main">Weather Index</td>
+                                                        <td className="text-danger">Poor</td>
+                                                        <td className="text-success font-bold">Excellent 🟢</td>
+                                                        <td>Good</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td className="font-semibold text-main">Landslide Hazard</td>
+                                                        <td className="text-danger">High ⚠️</td>
+                                                        <td className="text-success">Minimal</td>
+                                                        <td className="text-success">None</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* PLAN HISTORY */}
+                        <div className="card planner-history-card mt-6">
+                            <div className="card-header">
+                                <h3>Recent Route Plan History</h3>
+                            </div>
+                            <div className="card-body p-0">
+                                <div className="table-responsive">
+                                    <table className="table">
+                                        <thead>
+                                            <tr>
+                                                <th>Plan Code</th>
+                                                <th>Mission</th>
+                                                <th>Route Selected</th>
+                                                <th>Corridor</th>
+                                                <th>AI Status</th>
+                                                <th>Date Planned</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {routesHistory.map(row => (
+                                                <tr key={row.id}>
+                                                    <td><code className="font-mono text-primary">{row.id}</code></td>
+                                                    <td>{row.mission}</td>
+                                                    <td><strong>{row.route}</strong></td>
+                                                    <td>{row.from} ⇄ {row.to}</td>
+                                                    <td>
+                                                        <span className={`badge ${row.status === 'Completed' ? 'badge-success-light' : row.status === 'Re-routed' ? 'badge-warning-light' : 'badge-info-light'}`}>
+                                                            {row.status}
+                                                        </span>
+                                                    </td>
+                                                    <td className="text-secondary">{row.date}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
                     </main>
                 )}
