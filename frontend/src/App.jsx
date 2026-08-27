@@ -121,6 +121,32 @@ const osmStyle = {
     ]
 };
 
+const voyagerRasterStyle = {
+    version: 8,
+    sources: {
+        'carto-voyager': {
+            type: 'raster',
+            tiles: [
+                'https://a.basemaps.cartocdn.com/rastertiles/voyager_all/{z}/{x}/{y}.png',
+                'https://b.basemaps.cartocdn.com/rastertiles/voyager_all/{z}/{x}/{y}.png',
+                'https://c.basemaps.cartocdn.com/rastertiles/voyager_all/{z}/{x}/{y}.png',
+                'https://d.basemaps.cartocdn.com/rastertiles/voyager_all/{z}/{x}/{y}.png'
+            ],
+            tileSize: 256,
+            attribution: '© OpenStreetMap contributors, © CARTO'
+        }
+    },
+    layers: [
+        {
+            id: 'carto-voyager-layer',
+            type: 'raster',
+            source: 'carto-voyager',
+            minzoom: 0,
+            maxzoom: 20
+        }
+    ]
+};
+
 import {
     LayoutDashboard, Briefcase, MapPin, Map, Navigation, AlertTriangle, 
     BarChart3, FileText, Settings, ChevronDown, Menu, X, CloudRain, 
@@ -350,7 +376,7 @@ export default function App() {
     const handleMapRetry = () => {
         setMapLoadError(null);
         if (mapRef.current) {
-            mapRef.current.setStyle('https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json');
+            mapRef.current.setStyle(voyagerRasterStyle);
         }
     };
 
@@ -420,7 +446,7 @@ export default function App() {
         const maptilerKey = import.meta.env.VITE_MAPTILER_KEY || '';
         const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
         
-        let styleUrl = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
+        let styleUrl = voyagerRasterStyle;
         if (mapboxToken) {
             maplibregl.accessToken = mapboxToken;
             styleUrl = 'mapbox://styles/mapbox/streets-v11';
@@ -473,7 +499,6 @@ export default function App() {
                     tileSize: 256,
                     maxzoom: 15
                 });
-                map.setTerrain({ source: 'routes-terrain', exaggeration: 2.0 });
                 map.addLayer({
                     id: 'routes-hillshade',
                     type: 'hillshade',
@@ -720,7 +745,7 @@ export default function App() {
         const maptilerKey = import.meta.env.VITE_MAPTILER_KEY || '';
         const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
         
-        let styleUrl = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
+        let styleUrl = voyagerRasterStyle;
         if (mapboxToken) {
             maplibregl.accessToken = mapboxToken;
             styleUrl = 'mapbox://styles/mapbox/streets-v11';
@@ -788,7 +813,6 @@ export default function App() {
                 });
                 map.setTerrain({ source: 'terrain-source', exaggeration: 1.5 });
             } else {
-                // Free, open-source high-resolution AWS Terrarium RGB-DEM tiles
                 map.addSource('terrain-source', {
                     type: 'raster-dem',
                     tiles: [
@@ -798,7 +822,6 @@ export default function App() {
                     tileSize: 256,
                     maxzoom: 15
                 });
-                map.setTerrain({ source: 'terrain-source', exaggeration: 2.0 });
                 
                 // Add natural mountain hillshading layer
                 map.addLayer({
