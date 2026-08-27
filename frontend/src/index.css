@@ -3068,3 +3068,183 @@ label {
     }
 }
 
+/* Custom MapLibre markers, controls, and legend styling overrides */
+.pin-marker {
+    width: 20px;
+    height: 20px;
+    border-radius: 50% 50% 50% 0;
+    background: var(--primary);
+    position: absolute;
+    transform: rotate(-45deg);
+    left: -10px;
+    top: -20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.15);
+}
+.pin-marker.green {
+    background: var(--success);
+}
+.pin-marker.red {
+    background: var(--danger);
+}
+.pin-dot {
+    width: 8px;
+    height: 8px;
+    background: white;
+    border-radius: 50%;
+}
+.truck-marker-container {
+    width: 32px;
+    height: 32px;
+    background: white;
+    border: 2px solid var(--primary);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+    position: relative;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+.truck-marker-container:hover {
+    transform: scale(1.1);
+}
+.truck-marker-pulse {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 2px solid var(--primary);
+    animation: markerPulse 2s infinite;
+    pointer-events: none;
+}
+@keyframes markerPulse {
+    0% { transform: scale(1); opacity: 0.8; }
+    100% { transform: scale(1.8); opacity: 0; }
+}
+.truck-marker-svg {
+    width: 18px;
+    height: 18px;
+    color: var(--primary);
+    transition: transform 0.1s ease-out;
+}
+
+.maplibre-map-container {
+    background-color: #f4f6f8; /* Soft background while basemaps load */
+    outline: none;
+}
+
+.map-overlay-controls-panel {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 20;
+    display: flex;
+    gap: 8px;
+    background-color: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(8px);
+    padding: 6px;
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.map-overlay-controls-panel .btn {
+    border-color: rgba(255,255,255,0.1) !important;
+    background-color: transparent !important;
+    color: #FFFFFF !important;
+}
+
+.map-overlay-controls-panel .btn:hover {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.map-overlay-dropdown {
+    position: relative;
+}
+
+.map-layers-popover {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 8px;
+    background-color: #0F172A;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-md);
+    padding: 10px;
+    min-width: 165px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 30;
+}
+
+.popover-title {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #94A3B8;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 4px;
+    margin-bottom: 2px;
+}
+
+.layer-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.78rem;
+    cursor: pointer;
+    color: #E2E8F0;
+    user-select: none;
+}
+
+.layer-option input {
+    cursor: pointer;
+    width: 14px;
+    height: 14px;
+}
+
+/* Custom styles for MapLibre popups to match GIS Dashboard Theme */
+.maplibregl-popup-content {
+    background: #0F172A !important;
+    color: #F8FAFC !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: var(--radius-md) !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4) !important;
+    padding: 8px 12px !important;
+}
+.maplibregl-popup-anchor-top .maplibregl-popup-tip {
+    border-bottom-color: #0F172A !important;
+}
+.maplibregl-popup-anchor-bottom .maplibregl-popup-tip {
+    border-top-color: #0F172A !important;
+}
+.maplibregl-popup-anchor-left .maplibregl-popup-tip {
+    border-right-color: #0F172A !important;
+}
+.maplibregl-popup-anchor-right .maplibregl-popup-tip {
+    border-left-color: #0F172A !important;
+}
+
+.map-legend {
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3) !important;
+}
+
+/* Fix mobile responsive height bounds */
+@media (max-width: 767px) {
+    .tactical-map-viewport {
+        height: 380px !important;
+    }
+}
+@media (max-width: 480px) {
+    .tactical-map-viewport {
+        height: 340px !important;
+    }
+}
+
+

@@ -1,4 +1,100 @@
 import React, { useState, useEffect, useRef } from 'react';
+import maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
+
+const missionRouteCoords = {
+    'MED-1024': [
+        [91.7362, 26.1158], // Guwahati
+        [91.9540, 26.1680],
+        [92.2030, 26.1950], // Jagiroad
+        [92.5180, 26.2300], // Raha
+        [92.6840, 26.3480], // Nagaon
+        [92.8750, 26.1300], // Doboka
+        [93.4300, 25.8400], // Diphu
+        [93.7266, 25.9089], // Dimapur
+        [94.1086, 25.6751], // Kohima
+        [94.1300, 25.4000], // Mao
+        [94.1700, 25.2600], // Senapati
+        [93.9800, 25.1500], // Kangpokpi
+        [93.9368, 24.8170]  // Imphal
+    ],
+    'FD-2048': [
+        [92.7789, 24.8333], // Silchar
+        [92.7200, 24.5000],
+        [92.6780, 24.2250], // Kolasib
+        [92.7000, 24.0500], // Kawnpui
+        [92.7176, 23.7307]  // Aizawl
+    ],
+    'DR-3056': [
+        [94.2026, 26.7509], // Jorhat
+        [93.6000, 26.6500],
+        [92.9900, 26.5800], // Jakhlabandha
+        [92.7926, 26.6528]  // Tezpur
+    ],
+    'AG-4091': [
+        [93.7266, 25.9089], // Dimapur
+        [93.7700, 25.8200], // Chumukedima
+        [93.9000, 25.7500], // Medziphema
+        [94.1086, 25.6751]  // Kohima
+    ],
+    'CN-5012': [
+        [91.8833, 25.5689], // Shillong
+        [91.5500, 25.5500],
+        [91.2700, 25.5200], // Nongstoin
+        [90.6200, 25.5000], // Williamnagar
+        [90.2201, 25.5149]  // Tura
+    ],
+    'GC-6023': [
+        [91.2868, 23.8315], // Agartala
+        [91.5000, 23.9000],
+        [91.8500, 23.9800], // Ambassa
+        [92.0300, 24.2700], // Kumarghat
+        [92.0008, 24.3224]  // Kailashahar
+    ]
+};
+
+const alternativeRouteCoords = [
+    [91.7362, 26.1158], // Guwahati
+    [92.2030, 26.1950],
+    [92.6840, 26.3480], // Nagaon
+    [92.9500, 25.9100], // Lanka
+    [93.0200, 25.1800], // Haflong
+    [92.7789, 24.8333], // Silchar
+    [93.1300, 24.8000], // Jiribam
+    [93.6100, 24.8200], // Noney
+    [93.9368, 24.8170]  // Imphal
+];
+
+const getCoordinatesAtProgress = (coords, progress) => {
+    if (!coords || coords.length === 0) return [0, 0];
+    const totalSegments = coords.length - 1;
+    const currentProgress = progress * totalSegments;
+    const segmentIndex = Math.floor(currentProgress);
+    const segmentProgress = currentProgress - segmentIndex;
+    
+    if (segmentIndex >= totalSegments) {
+        return coords[totalSegments];
+    }
+    
+    const start = coords[segmentIndex];
+    const end = coords[segmentIndex + 1];
+    
+    const lng = start[0] + (end[0] - start[0]) * segmentProgress;
+    const lat = start[1] + (end[1] - start[1]) * segmentProgress;
+    return [lng, lat];
+};
+
+const getBearing = (start, end) => {
+    if (!start || !end) return 0;
+    const lat1 = start[1] * Math.PI / 180;
+    const lat2 = end[1] * Math.PI / 180;
+    const dLon = (end[0] - start[0]) * Math.PI / 180;
+    
+    const y = Math.sin(dLon) * Math.cos(lat2);
+    const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+    const brng = Math.atan2(y, x) * 180 / Math.PI;
+    return (brng + 360) % 360;
+};
 import {
     LayoutDashboard, Briefcase, MapPin, Map, Navigation, AlertTriangle, 
     BarChart3, FileText, Settings, ChevronDown, Menu, X, CloudRain, 
@@ -199,10 +295,29 @@ export default function App() {
     });
 
     // Refs for map tracking animation
-    const vehicleTrackRef = useRef(null);
-    const vehicleMarkerRef = useRef(null);
-    const vehicleArrowRef = useRef(null);
     const animProgressRef = useRef(0.65); // Default start for MED-1024
+    
+    // MapLibre Refs
+    const mapContainerRef = useRef(null);
+    const mapRef = useRef(null);
+    const mapVehicleMarkerRef = useRef(null);
+    const mapOriginMarkerRef = useRef(null);
+    const mapDestMarkerRef = useRef(null);
+    
+    // MapLibre states
+    const [is3D, setIs3D] = useState(true);
+    const [isDisrupted, setIsDisrupted] = useState(false);
+    const [showAlternativeRoute, setShowAlternativeRoute] = useState(false);
+    const [isStyleLoaded, setIsStyleLoaded] = useState(false);
+    const [showLayersDropdown, setShowLayersDropdown] = useState(false);
+    const [mapLayers, setMapLayers] = useState({
+        roads: true,
+        terrain: true,
+        riskZones: true,
+        weather: false,
+        traffic: false,
+        disruptions: false
+    });
 
     // Active Mission configuration
     const activeMission = missions.find(m => m.id === activeMissionId) || missions[0];
@@ -242,47 +357,390 @@ export default function App() {
         return () => clearInterval(interval);
     }, [activeMissionId, missions]);
 
+    // Update marker helper function
+    const updateMapMarkers = (coords, mission) => {
+        if (!mapRef.current) return;
+        
+        // Update or create Origin Marker
+        const originLngLat = coords[0];
+        if (mapOriginMarkerRef.current) {
+            mapOriginMarkerRef.current.setLngLat(originLngLat);
+            mapOriginMarkerRef.current.getPopup().setHTML(`
+                <div style="font-family: sans-serif; padding: 5px; color: #0F172A;">
+                    <h4 style="margin: 0 0 4px 0; color: #22C55E; font-size: 0.9rem;">${mission.origin}</h4>
+                    <p style="margin: 0; font-size: 0.8rem; color: #64748B;">Mission Origin Node</p>
+                </div>
+            `);
+        } else {
+            const el = document.createElement('div');
+            el.className = 'origin-marker-pin';
+            el.innerHTML = `<div class="pin-marker green"><div class="pin-dot"></div></div>`;
+            const popup = new maplibregl.Popup({ offset: 15 }).setHTML(`
+                <div style="font-family: sans-serif; padding: 5px; color: #0F172A;">
+                    <h4 style="margin: 0 0 4px 0; color: #22C55E; font-size: 0.9rem;">${mission.origin}</h4>
+                    <p style="margin: 0; font-size: 0.8rem; color: #64748B;">Mission Origin Node</p>
+                </div>
+            `);
+            mapOriginMarkerRef.current = new maplibregl.Marker(el)
+                .setLngLat(originLngLat)
+                .setPopup(popup)
+                .addTo(mapRef.current);
+        }
+
+        // Update or create Destination Marker
+        const destLngLat = coords[coords.length - 1];
+        if (mapDestMarkerRef.current) {
+            mapDestMarkerRef.current.setLngLat(destLngLat);
+            mapDestMarkerRef.current.getPopup().setHTML(`
+                <div style="font-family: sans-serif; padding: 5px; color: #0F172A;">
+                    <h4 style="margin: 0 0 4px 0; color: #EF4444; font-size: 0.9rem;">${mission.destination}</h4>
+                    <p style="margin: 0; font-size: 0.8rem; color: #64748B;">Mission Destination Node</p>
+                </div>
+            `);
+        } else {
+            const el = document.createElement('div');
+            el.className = 'dest-marker-pin';
+            el.innerHTML = `<div class="pin-marker red"><div class="pin-dot"></div></div>`;
+            const popup = new maplibregl.Popup({ offset: 15 }).setHTML(`
+                <div style="font-family: sans-serif; padding: 5px; color: #0F172A;">
+                    <h4 style="margin: 0 0 4px 0; color: #EF4444; font-size: 0.9rem;">${mission.destination}</h4>
+                    <p style="margin: 0; font-size: 0.8rem; color: #64748B;">Mission Destination Node</p>
+                </div>
+            `);
+            mapDestMarkerRef.current = new maplibregl.Marker(el)
+                .setLngLat(destLngLat)
+                .setPopup(popup)
+                .addTo(mapRef.current);
+        }
+    };
+
+    // Initialize MapLibre GL Map
+    useEffect(() => {
+        if (!mapContainerRef.current) return;
+
+        const map = new maplibregl.Map({
+            container: mapContainerRef.current,
+            style: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
+            center: [92.8, 25.6], // Centered in North-East India
+            zoom: 6.6,
+            pitch: 45, // Tilted 3D view
+            bearing: -10,
+            antialias: true
+        });
+
+        mapRef.current = map;
+
+        map.on('load', () => {
+            // Safe route segment
+            map.addSource('route-safe', {
+                type: 'geojson',
+                data: { type: 'Feature', geometry: { type: 'LineString', coordinates: [] } }
+            });
+            map.addLayer({
+                id: 'route-safe-layer',
+                type: 'line',
+                source: 'route-safe',
+                layout: { 'line-join': 'round', 'line-cap': 'round' },
+                paint: { 'line-color': '#22C55E', 'line-width': 6, 'line-opacity': 0.85 }
+            });
+
+            // Medium risk segment
+            map.addSource('route-medium', {
+                type: 'geojson',
+                data: { type: 'Feature', geometry: { type: 'LineString', coordinates: [] } }
+            });
+            map.addLayer({
+                id: 'route-medium-layer',
+                type: 'line',
+                source: 'route-medium',
+                layout: { 'line-join': 'round', 'line-cap': 'round' },
+                paint: { 'line-color': '#F59E0B', 'line-width': 6, 'line-opacity': 0.85 }
+            });
+
+            // Danger segment
+            map.addSource('route-danger', {
+                type: 'geojson',
+                data: { type: 'Feature', geometry: { type: 'LineString', coordinates: [] } }
+            });
+            map.addLayer({
+                id: 'route-danger-layer',
+                type: 'line',
+                source: 'route-danger',
+                layout: { 'line-join': 'round', 'line-cap': 'round' },
+                paint: { 'line-color': '#EF4444', 'line-width': 6, 'line-opacity': 0.85 }
+            });
+
+            // Alternative route B
+            map.addSource('route-alternative', {
+                type: 'geojson',
+                data: { type: 'Feature', geometry: { type: 'LineString', coordinates: [] } }
+            });
+            map.addLayer({
+                id: 'route-alternative-layer',
+                type: 'line',
+                source: 'route-alternative',
+                layout: { 'line-join': 'round', 'line-cap': 'round' },
+                paint: {
+                    'line-color': '#14B8A6',
+                    'line-width': 6,
+                    'line-opacity': 0.85,
+                    'line-dasharray': [2, 2]
+                }
+            });
+
+            // Landslide danger zone
+            map.addSource('danger-zone', {
+                type: 'geojson',
+                data: { type: 'Feature', geometry: { type: 'Point', coordinates: [94.1086, 25.6751] } }
+            });
+            map.addLayer({
+                id: 'danger-zone-layer',
+                type: 'circle',
+                source: 'danger-zone',
+                paint: {
+                    'circle-radius': ['interpolate', ['linear'], ['zoom'], 5, 20, 10, 80],
+                    'circle-color': '#EF4444',
+                    'circle-opacity': 0,
+                    'circle-stroke-width': 2,
+                    'circle-stroke-color': '#EF4444',
+                    'circle-stroke-opacity': 0
+                }
+            });
+
+            // Weather rain radar zone
+            map.addSource('weather-zone', {
+                type: 'geojson',
+                data: { type: 'Feature', geometry: { type: 'Point', coordinates: [92.7789, 24.8333] } }
+            });
+            map.addLayer({
+                id: 'weather-zone-layer',
+                type: 'circle',
+                source: 'weather-zone',
+                paint: {
+                    'circle-radius': ['interpolate', ['linear'], ['zoom'], 5, 30, 10, 120],
+                    'circle-color': '#3B82F6',
+                    'circle-opacity': 0,
+                    'circle-stroke-width': 1,
+                    'circle-stroke-color': '#3B82F6',
+                    'circle-stroke-opacity': 0
+                }
+            });
+
+            setIsStyleLoaded(true);
+        });
+
+        return () => {
+            if (mapRef.current) {
+                mapRef.current.remove();
+                mapRef.current = null;
+            }
+        };
+    }, []);
+
+    // 2D / 3D Toggle
+    const toggle2D3D = () => {
+        if (!mapRef.current) return;
+        const next3D = !is3D;
+        setIs3D(next3D);
+        if (next3D) {
+            mapRef.current.easeTo({ pitch: 45, bearing: -10, duration: 1000 });
+        } else {
+            mapRef.current.easeTo({ pitch: 0, bearing: 0, duration: 1000 });
+        }
+    };
+
+    // Recenter map
+    const recenterMap = () => {
+        if (!mapRef.current || !activeMission) return;
+        const coords = missionRouteCoords[activeMissionId] || missionRouteCoords['MED-1024'];
+        const routeCenter = coords[Math.floor(coords.length / 2)];
+        mapRef.current.easeTo({
+            center: isDisrupted && activeMissionId === 'MED-1024' ? [93.5, 25.2] : routeCenter,
+            zoom: activeMissionId === 'MED-1024' ? 6.6 : 7.2,
+            pitch: is3D ? 45 : 0,
+            bearing: is3D ? -10 : 0,
+            duration: 1000
+        });
+    };
+
+    // Layer selection handler
+    const handleLayerToggle = (layerKey) => {
+        setMapLayers(prev => ({ ...prev, [layerKey]: !prev[layerKey] }));
+    };
+
+    // Simulation triggers
+    const toggleDisruptionSimulation = () => {
+        if (!isDisrupted) {
+            setIsDisrupted(true);
+            setShowAlternativeRoute(true);
+            const newAlert = {
+                id: Date.now(),
+                level: 'CRITICAL ALERT',
+                levelClass: 'high-risk',
+                time: 'Just now',
+                desc: '⚠️ LANDSLIDE RISK detected on NH-2 (Kohima-Mao segment). Road blocked. AI alternative Route B recommended!'
+            };
+            setAlerts(prev => [newAlert, ...prev]);
+            setDistLeft('284 km left');
+            setWeatherLoc('Silchar Corridor');
+        } else {
+            setIsDisrupted(false);
+            setShowAlternativeRoute(false);
+            const newAlert = {
+                id: Date.now(),
+                level: 'RESOLVED',
+                levelClass: 'resolved',
+                time: 'Just now',
+                desc: '✅ NH-2 route cleared. Landslide warnings resolved. Normal route active.'
+            };
+            setAlerts(prev => [newAlert, ...prev]);
+            setDistLeft(activeMission ? activeMission.distance : '147 km');
+            setWeatherLoc('Guwahati, Assam');
+        }
+    };
+
+    // Update map geojson paths and overlays when active mission or layers change
+    useEffect(() => {
+        if (!mapRef.current || !isStyleLoaded || !activeMission) return;
+
+        const coords = missionRouteCoords[activeMissionId] || missionRouteCoords['MED-1024'];
+        updateMapMarkers(coords, activeMission);
+
+        // Update layers visibility based on checkbox selection
+        if (mapRef.current.getLayer('route-safe-layer')) {
+            mapRef.current.setLayoutProperty('route-safe-layer', 'visibility', mapLayers.roads ? 'visible' : 'none');
+            mapRef.current.setLayoutProperty('route-medium-layer', 'visibility', mapLayers.roads ? 'visible' : 'none');
+            mapRef.current.setLayoutProperty('route-danger-layer', 'visibility', mapLayers.roads ? 'visible' : 'none');
+        }
+
+        if (activeMissionId === 'MED-1024') {
+            if (isDisrupted) {
+                mapRef.current.getSource('route-safe').setData({
+                    type: 'Feature', geometry: { type: 'LineString', coordinates: coords.slice(0, 7) }
+                });
+                mapRef.current.getSource('route-medium').setData({
+                    type: 'Feature', geometry: { type: 'LineString', coordinates: [] }
+                });
+                mapRef.current.getSource('route-danger').setData({
+                    type: 'Feature', geometry: { type: 'LineString', coordinates: coords.slice(6, 13) }
+                });
+                mapRef.current.getSource('route-alternative').setData({
+                    type: 'Feature', geometry: { type: 'LineString', coordinates: alternativeRouteCoords }
+                });
+                mapRef.current.setPaintProperty('route-alternative-layer', 'line-dasharray', null);
+                mapRef.current.setPaintProperty('route-alternative-layer', 'line-color', '#22C55E');
+            } else {
+                mapRef.current.getSource('route-safe').setData({
+                    type: 'Feature', geometry: { type: 'LineString', coordinates: coords.slice(0, 7) }
+                });
+                mapRef.current.getSource('route-medium').setData({
+                    type: 'Feature', geometry: { type: 'LineString', coordinates: coords.slice(6, 9) }
+                });
+                mapRef.current.getSource('route-danger').setData({
+                    type: 'Feature', geometry: { type: 'LineString', coordinates: coords.slice(8, 13) }
+                });
+                mapRef.current.getSource('route-alternative').setData({
+                    type: 'Feature', geometry: { type: 'LineString', coordinates: [] }
+                });
+            }
+        } else {
+            mapRef.current.getSource('route-safe').setData({
+                type: 'Feature', geometry: { type: 'LineString', coordinates: coords }
+            });
+            mapRef.current.getSource('route-medium').setData({
+                type: 'Feature', geometry: { type: 'LineString', coordinates: [] }
+            });
+            mapRef.current.getSource('route-danger').setData({
+                type: 'Feature', geometry: { type: 'LineString', coordinates: [] }
+            });
+            mapRef.current.getSource('route-alternative').setData({
+                type: 'Feature', geometry: { type: 'LineString', coordinates: [] }
+            });
+        }
+
+        // Apply style opacities
+        mapRef.current.setPaintProperty('danger-zone-layer', 'circle-opacity', (mapLayers.riskZones || isDisrupted) ? 0.25 : 0);
+        mapRef.current.setPaintProperty('danger-zone-layer', 'circle-stroke-opacity', (mapLayers.riskZones || isDisrupted) ? 0.8 : 0);
+        
+        mapRef.current.setPaintProperty('weather-zone-layer', 'circle-opacity', (mapLayers.weather || isDisrupted) ? 0.2 : 0);
+        mapRef.current.setPaintProperty('weather-zone-layer', 'circle-stroke-opacity', (mapLayers.weather || isDisrupted) ? 0.5 : 0);
+
+        recenterMap();
+    }, [activeMissionId, isStyleLoaded, isDisrupted, showAlternativeRoute, mapLayers, missions]);
+
     // Live Map Vehicle Path Animation loop
     useEffect(() => {
+        if (!mapRef.current || !isStyleLoaded || !activeMission) return;
+
         let animFrameId;
+        const coords = isDisrupted && activeMissionId === 'MED-1024' 
+            ? alternativeRouteCoords 
+            : (missionRouteCoords[activeMissionId] || missionRouteCoords['MED-1024']);
 
         const animate = () => {
-            const trackPath = vehicleTrackRef.current;
-            const marker = vehicleMarkerRef.current;
-            const arrow = vehicleArrowRef.current;
-
-            if (trackPath && marker && activeMission) {
-                try {
-                    if (activeMission.progress > 0 && activeMission.progress < 100) {
-                        animProgressRef.current += 0.0004;
-                        if (animProgressRef.current > 0.98) {
-                            animProgressRef.current = 0.1; // loop
-                        }
-                    } else {
-                        animProgressRef.current = activeMission.progress / 100;
-                    }
-
-                    const pathLength = trackPath.getTotalLength();
-                    const point = trackPath.getPointAtLength(animProgressRef.current * pathLength);
-                    
-                    marker.setAttribute('transform', `translate(${point.x}, ${point.y})`);
-
-                    const pointAhead = trackPath.getPointAtLength(Math.min(pathLength, (animProgressRef.current + 0.005) * pathLength));
-                    const angle = Math.atan2(pointAhead.y - point.y, pointAhead.x - point.x) * 180 / Math.PI;
-                    if (arrow) {
-                        arrow.setAttribute('transform', `rotate(${angle})`);
-                    }
-                } catch (err) {
-                    // Path calculations might fail before SVG loads fully
+            if (activeMission.progress > 0 && activeMission.progress < 100) {
+                animProgressRef.current += 0.0003;
+                if (animProgressRef.current > 0.98) {
+                    animProgressRef.current = 0.02;
                 }
+            } else {
+                animProgressRef.current = activeMission.progress / 100;
+            }
+
+            const vehicleLngLat = getCoordinatesAtProgress(coords, animProgressRef.current);
+
+            // Update Vehicle Marker position
+            if (mapVehicleMarkerRef.current) {
+                mapVehicleMarkerRef.current.setLngLat(vehicleLngLat);
+                
+                const nextIndex = Math.min(coords.length - 1, Math.floor(animProgressRef.current * (coords.length - 1)) + 1);
+                const currIndex = Math.max(0, nextIndex - 1);
+                const bearing = getBearing(coords[currIndex], coords[nextIndex]);
+                
+                const el = mapVehicleMarkerRef.current.getElement();
+                const svg = el.querySelector('.truck-marker-svg');
+                if (svg) {
+                    svg.style.transform = `rotate(${bearing - 90}deg)`;
+                }
+            } else {
+                const el = document.createElement('div');
+                el.className = 'vehicle-marker-truck';
+                el.innerHTML = `
+                    <div class="truck-marker-container">
+                        <div class="truck-marker-pulse"></div>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="truck-marker-svg" style="transform: rotate(0deg); width:18px; height:18px; color:#2563EB;">
+                            <rect x="1" y="3" width="15" height="13" rx="2" ry="2" fill="#2563EB"></rect>
+                            <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" fill="#1D4ED8"></polygon>
+                            <circle cx="5.5" cy="18.5" r="2.5" fill="#1E293B"></circle>
+                            <circle cx="18.5" cy="18.5" r="2.5" fill="#1E293B"></circle>
+                        </svg>
+                    </div>
+                `;
+                const popup = new maplibregl.Popup({ offset: 20 }).setHTML(`
+                    <div style="font-family: sans-serif; padding: 5px; color: #0F172A;">
+                        <h4 style="margin: 0 0 4px 0; color: #2563EB; font-size: 0.9rem;">${activeMission.id}</h4>
+                        <p style="margin: 0 0 2px 0; font-size: 0.8rem;"><strong>Manifest:</strong> ${activeMission.cargo}</p>
+                        <p style="margin: 0; font-size: 0.8rem; color: #22C55E;"><strong>Status:</strong> In Transit</p>
+                    </div>
+                `);
+                mapVehicleMarkerRef.current = new maplibregl.Marker(el)
+                    .setLngLat(vehicleLngLat)
+                    .setPopup(popup)
+                    .addTo(mapRef.current);
             }
 
             animFrameId = requestAnimationFrame(animate);
         };
 
         animFrameId = requestAnimationFrame(animate);
-        return () => cancelAnimationFrame(animFrameId);
-    }, [activeMission, activeMissionId]);
+        return () => {
+            cancelAnimationFrame(animFrameId);
+            if (mapVehicleMarkerRef.current) {
+                mapVehicleMarkerRef.current.remove();
+                mapVehicleMarkerRef.current = null;
+            }
+        };
+    }, [activeMissionId, isStyleLoaded, isDisrupted, missions]);
 
     const fetchMissions = async () => {
         try {
@@ -700,131 +1158,92 @@ export default function App() {
                                         <span className="map-subtitle">Real-time accessibility layers & active mission pathing</span>
                                     </div>
                                     <div className="map-controls">
-                                        <button className="btn btn-sm btn-secondary active"><Layers /> <span>Terrain & Risk</span></button>
-                                        <button className="btn btn-sm btn-secondary"><CloudLightning /> <span>Weather Radar</span></button>
+                                        {activeMissionId === 'MED-1024' && (
+                                            <button 
+                                                className={`btn btn-sm ${isDisrupted ? 'btn-danger' : 'btn-primary'} pulse-ring`}
+                                                onClick={toggleDisruptionSimulation}
+                                            >
+                                                <AlertTriangle style={{ width: 14, height: 14 }} /> 
+                                                <span>{isDisrupted ? 'Resolve Landslide' : 'Simulate Landslide'}</span>
+                                            </button>
+                                        )}
+                                        <button className="btn btn-sm btn-secondary" onClick={() => handleLayerToggle('weather')}>
+                                            <CloudLightning style={{ width: 14, height: 14 }} /> 
+                                            <span>Weather {mapLayers.weather ? 'ON' : 'OFF'}</span>
+                                        </button>
                                     </div>
                                 </div>
 
-                                <div className="tactical-map-viewport">
-                                    <div className="map-grid-overlay"></div>
+                                <div className="tactical-map-viewport" style={{ padding: 0, height: '480px' }}>
+                                    {/* Map container element for MapLibre */}
+                                    <div ref={mapContainerRef} className="maplibre-map-container" style={{ width: '100%', height: '100%' }}></div>
+                                    
+                                    {/* Tactical scan-line overlay for GIS styling */}
                                     <div className="map-scan-line"></div>
 
-                                    <svg className="gis-svg-map" viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg">
-                                        <defs>
-                                            <pattern id="gridPattern" width="40" height="40" patternUnits="userSpaceOnUse">
-                                                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(148, 163, 184, 0.05)" strokeWidth="1" />
-                                            </pattern>
-                                            <filter id="glow-green" x="-20%" y="-20%" width="140%" height="140%">
-                                                <feGaussianBlur stdDeviation="3" result="blur" />
-                                                <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                                            </filter>
-                                            <filter id="glow-orange" x="-20%" y="-20%" width="140%" height="140%">
-                                                <feGaussianBlur stdDeviation="3" result="blur" />
-                                                <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                                            </filter>
-                                            <filter id="glow-red" x="-20%" y="-20%" width="140%" height="140%">
-                                                <feGaussianBlur stdDeviation="3" result="blur" />
-                                                <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                                            </filter>
-                                        </defs>
-                                        <rect width="100%" height="100%" fill="url(#gridPattern)" />
+                                    {/* Overlay custom GIS controls panel */}
+                                    <div className="map-overlay-controls-panel">
+                                        <div className="map-overlay-dropdown">
+                                            <button className="btn btn-xs btn-secondary" onClick={() => setShowLayersDropdown(!showLayersDropdown)}>
+                                                <Layers style={{ width: 12, height: 12 }} />
+                                                <span>Layers</span>
+                                            </button>
+                                            {showLayersDropdown && (
+                                                <div className="map-layers-popover">
+                                                    <div className="popover-title">Map Layers</div>
+                                                    <label className="layer-option">
+                                                        <input type="checkbox" checked={mapLayers.roads} onChange={() => handleLayerToggle('roads')} />
+                                                        <span>Roads</span>
+                                                    </label>
+                                                    <label className="layer-option">
+                                                        <input type="checkbox" checked={mapLayers.terrain} onChange={() => handleLayerToggle('terrain')} />
+                                                        <span>Terrain</span>
+                                                    </label>
+                                                    <label className="layer-option">
+                                                        <input type="checkbox" checked={mapLayers.riskZones} onChange={() => handleLayerToggle('riskZones')} />
+                                                        <span>Risk Zones</span>
+                                                    </label>
+                                                    <label className="layer-option">
+                                                        <input type="checkbox" checked={mapLayers.weather} onChange={() => handleLayerToggle('weather')} />
+                                                        <span>Weather Radar</span>
+                                                    </label>
+                                                    <label className="layer-option">
+                                                        <input type="checkbox" checked={mapLayers.traffic} onChange={() => handleLayerToggle('traffic')} />
+                                                        <span>Traffic Density</span>
+                                                    </label>
+                                                    <label className="layer-option">
+                                                        <input type="checkbox" checked={mapLayers.disruptions} onChange={() => handleLayerToggle('disruptions')} />
+                                                        <span>Disruptions</span>
+                                                    </label>
+                                                </div>
+                                            )}
+                                        </div>
 
-                                        <g className="map-states">
-                                            <path className="state-poly AP" d="M 280,100 L 400,60 L 520,80 L 680,40 L 720,120 L 630,220 L 540,160 L 420,170 L 320,150 Z" />
-                                            <text x="500" y="110" className="state-label">Arunachal Pradesh</text>
-                                            <path className="state-poly AS" d="M 200,240 L 280,100 L 320,150 L 420,170 L 540,160 L 630,220 L 610,250 L 560,250 L 510,210 L 400,200 L 360,260 L 260,270 L 230,350 L 220,330 L 200,330 L 220,290 Z" />
-                                            <text x="350" y="220" className="state-label">Assam</text>
-                                            <path className="state-poly ML" d="M 180,290 L 280,285 L 290,320 L 200,330 Z" />
-                                            <text x="235" y="310" className="state-label">Meghalaya</text>
-                                            <path className="state-poly NL" d="M 610,250 L 660,270 L 640,320 L 590,290 Z" />
-                                            <text x="635" y="285" className="state-label font-sm">Nagaland</text>
-                                            <path className="state-poly MN" d="M 590,290 L 640,320 L 610,380 L 560,370 Z" />
-                                            <text x="600" y="340" className="state-label font-sm">Manipur</text>
-                                            <path className="state-poly MZ" d="M 560,370 L 585,380 L 565,470 L 520,440 Z" />
-                                            <text x="555" y="420" className="state-label font-sm">Mizoram</text>
-                                            <path className="state-poly TR" d="M 230,350 L 260,355 L 255,420 L 220,400 Z" />
-                                            <text x="238" y="385" className="state-label font-xs">Tripura</text>
-                                        </g>
+                                        <button className="btn btn-xs btn-secondary" onClick={toggle2D3D}>
+                                            <Navigation style={{ width: 12, height: 12, transform: is3D ? 'rotate(45deg)' : 'none' }} />
+                                            <span>{is3D ? '2D View' : '3D View'}</span>
+                                        </button>
 
-                                        <g className="map-cities">
-                                            <circle cx="230" cy="270" r="6" className="city-node hub" />
-                                            <text x="220" y="258" className="city-name font-bold">Guwahati</text>
-                                            <circle cx="260" cy="305" r="4" className="city-node" />
-                                            <text x="268" y="308" className="city-name">Shillong</text>
-                                            <circle cx="480" cy="345" r="4" className="city-node" />
-                                            <text x="490" y="350" className="city-name">Silchar</text>
-                                            <circle cx="600" cy="350" r="6" className="city-node hub destination" />
-                                            <text x="612" y="354" className="city-name font-bold">Imphal</text>
-                                            <circle cx="550" cy="405" r="4" className="city-node" />
-                                            <text x="560" y="409" className="city-name">Aizawl</text>
-                                            <circle cx="615" cy="300" r="4" className="city-node" />
-                                            <text x="625" y="304" className="city-name">Kohima</text>
-                                            <circle cx="380" cy="210" r="4" className="city-node" />
-                                            <text x="380" y="200" className="city-name">Tezpur</text>
-                                            <circle cx="490" cy="225" r="4" className="city-node" />
-                                            <text x="490" y="215" className="city-name">Jorhat</text>
-                                        </g>
+                                        <button className="btn btn-xs btn-secondary" onClick={recenterMap}>
+                                            <MapPin style={{ width: 12, height: 12 }} />
+                                            <span>Recenter</span>
+                                        </button>
+                                    </div>
 
-                                        {activeMissionId === 'MED-1024' && (
-                                            <g className="active-route-paths">
-                                                <path d="M 230,270 Q 280,285 360,310 T 480,345" fill="none" stroke="#22C55E" strokeWidth="4" filter="url(#glow-green)" className="route-segment green" />
-                                                <path d="M 480,345 Q 520,335 550,342" fill="none" stroke="#F59E0B" strokeWidth="4" filter="url(#glow-orange)" className="route-segment orange" />
-                                                <path d="M 550,342 L 600,350" fill="none" stroke="#EF4444" strokeWidth="4" filter="url(#glow-red)" className="route-segment red" />
-                                            </g>
-                                        )}
-
-                                        {activeMissionId !== 'MED-1024' && activeMission && (
-                                            <g className="inactive-route-paths">
-                                                <path d={activeMission.svgPath} fill="none" stroke="#22C55E" strokeWidth="4" strokeDasharray="5,5" filter="url(#glow-green)" />
-                                            </g>
-                                        )}
-
-                                        {activeMission && (
-                                            <path ref={vehicleTrackRef} id="vehicle-track" d={activeMission.svgPath} fill="none" stroke="transparent" strokeWidth="1" />
-                                        )}
-
-                                        <g className="map-hazard-markers">
-                                            {activeMission?.hazards?.map((hazard, index) => (
-                                                <g key={index} transform={`translate(${hazard.x - 10}, ${hazard.y - 10})`} className={`map-icon-marker ${hazard.type === 'rain' ? 'warning' : 'danger pulse-fast'}`}>
-                                                    <circle cx="10" cy="10" r="12" className="marker-bg" />
-                                                    {hazard.type === 'rain' ? (
-                                                        <>
-                                                            <path d="M6 11 C4.5 11 3.5 10 3.5 8.5 C3.5 7 4.7 6.2 6 6.2 C6.5 4.5 8 3.5 10 3.5 C12.5 3.5 14 5.5 13.5 7.5 C14.5 7.5 15.5 8.5 15.5 9.8 C15.5 11 14.5 11 13.5 11 Z" fill="#F59E0B" />
-                                                            <line x1="7" y1="13" x2="6" y2="15" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/>
-                                                            <line x1="10" y1="13" x2="9" y2="15" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/>
-                                                            <line x1="13" y1="13" x2="12" y2="15" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <polygon points="10,2 19,17 1,17" fill="#EF4444" />
-                                                            <rect x="9" y="7" width="2" height="5" fill="#FFF" />
-                                                            <circle cx="10" cy="15" r="1" fill="#FFF" />
-                                                        </>
-                                                    )}
-                                                </g>
-                                            ))}
-                                        </g>
-
-                                        <g ref={vehicleMarkerRef} id="vehicle-marker" className="vehicle-marker">
-                                            <circle cx="0" cy="0" r="10" className="vehicle-pulse-ring" />
-                                            <circle cx="0" cy="0" r="6" className="vehicle-dot" />
-                                            <polygon ref={vehicleArrowRef} id="vehicle-arrow" points="-3,-2 4,0 -3,2" fill="#FFFFFF" />
-                                        </g>
-                                    </svg>
-
-                                    <div className="map-legend">
+                                    {/* Map Legend Overlay */}
+                                    <div className="map-legend" style={{ zIndex: 20 }}>
                                         <div className="legend-title">Routing Intelligence</div>
                                         <div className="legend-grid">
                                             <div className="legend-item"><span className="legend-color green"></span><span className="legend-label">Safe Route</span></div>
                                             <div className="legend-item"><span className="legend-color orange"></span><span className="legend-label">Medium Risk</span></div>
                                             <div className="legend-item"><span className="legend-color red"></span><span className="legend-label">High Risk</span></div>
                                             <div className="legend-item">
-                                                <CloudRain className="text-warning" style={{ width: 14, height: 14 }} />
+                                                <CloudRain className="text-warning" style={{ width: 12, height: 12 }} />
                                                 <span className="legend-label">Weather Impact</span>
                                             </div>
                                             <div className="legend-item">
-                                                <AlertTriangle className="text-danger" style={{ width: 14, height: 14 }} />
-                                                <span className="legend-label">Road Blockage</span>
+                                                <AlertTriangle className="text-danger" style={{ width: 12, height: 12 }} />
+                                                <span className="legend-label">Landslide Block</span>
                                             </div>
                                             <div className="legend-item"><span className="legend-vehicle-dot"></span><span className="legend-label">Vehicle</span></div>
                                         </div>

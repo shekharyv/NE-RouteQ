@@ -10,9 +10,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "lucide-react": "^0.378.0",
+    "maplibre-gl": "^6.6.0",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8",
-    "lucide-react": "^0.378.0"
+    "react-dom": "^19.2.8"
   },
   "devDependencies": {
     "@types/react": "^19.2.18",
