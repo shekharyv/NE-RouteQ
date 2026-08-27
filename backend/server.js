@@ -297,6 +297,17 @@ app.get('/api/status', (req, res) => {
     });
 });
 
+// POST: Client-side Error Logger
+app.post('/api/log-error', (req, res) => {
+    console.error('\n!!! CLIENT REACT CRASH LOGGED !!!');
+    console.error('Message:', req.body.message);
+    console.error('File:', req.body.filename);
+    console.error('Line:', req.body.lineno);
+    console.error('Stack Trace:', req.body.stack);
+    console.error('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n');
+    res.sendStatus(200);
+});
+
 app.listen(PORT, () => {
     console.log(`NE-RouteIQ API Server is running on port ${PORT}`);
 });
