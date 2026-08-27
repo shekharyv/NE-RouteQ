@@ -1067,49 +1067,56 @@ export default function App() {
             mapRef.current.setLayoutProperty('route-danger-layer', 'visibility', mapLayers.roads ? 'visible' : 'none');
         }
 
-        if (activeMissionId === 'MED-1024') {
-            if (isDisrupted) {
-                mapRef.current.getSource('route-safe').setData({
-                    type: 'Feature', geometry: { type: 'LineString', coordinates: coords.slice(0, 7) }
+        const safeSource = mapRef.current.getSource('route-safe');
+        const mediumSource = mapRef.current.getSource('route-medium');
+        const dangerSource = mapRef.current.getSource('route-danger');
+        const altSource = mapRef.current.getSource('route-alternative');
+
+        if (safeSource && mediumSource && dangerSource && altSource) {
+            if (activeMissionId === 'MED-1024') {
+                if (isDisrupted) {
+                    safeSource.setData({
+                        type: 'Feature', geometry: { type: 'LineString', coordinates: coords.slice(0, 7) }
+                    });
+                    mediumSource.setData({
+                        type: 'Feature', geometry: { type: 'LineString', coordinates: [] }
+                    });
+                    dangerSource.setData({
+                        type: 'Feature', geometry: { type: 'LineString', coordinates: coords.slice(6, 13) }
+                    });
+                    altSource.setData({
+                        type: 'Feature', geometry: { type: 'LineString', coordinates: alternativeRouteCoords }
+                    });
+                    mapRef.current.setPaintProperty('route-alternative-layer', 'line-dasharray', null);
+                    mapRef.current.setPaintProperty('route-alternative-layer', 'line-color', '#22C55E');
+                } else {
+                    safeSource.setData({
+                        type: 'Feature', geometry: { type: 'LineString', coordinates: coords.slice(0, 7) }
+                    });
+                    mediumSource.setData({
+                        type: 'Feature', geometry: { type: 'LineString', coordinates: coords.slice(6, 9) }
+                    });
+                    dangerSource.setData({
+                        type: 'Feature', geometry: { type: 'LineString', coordinates: coords.slice(8, 13) }
+                    });
+                    altSource.setData({
+                        type: 'Feature', geometry: { type: 'LineString', coordinates: [] }
+                    });
+                }
+            } else {
+                safeSource.setData({
+                    type: 'Feature', geometry: { type: 'LineString', coordinates: coords }
                 });
-                mapRef.current.getSource('route-medium').setData({
+                mediumSource.setData({
                     type: 'Feature', geometry: { type: 'LineString', coordinates: [] }
                 });
-                mapRef.current.getSource('route-danger').setData({
-                    type: 'Feature', geometry: { type: 'LineString', coordinates: coords.slice(6, 13) }
+                dangerSource.setData({
+                    type: 'Feature', geometry: { type: 'LineString', coordinates: [] }
                 });
-                mapRef.current.getSource('route-alternative').setData({
-                    type: 'Feature', geometry: { type: 'LineString', coordinates: alternativeRouteCoords }
-                });
-                mapRef.current.setPaintProperty('route-alternative-layer', 'line-dasharray', null);
-                mapRef.current.setPaintProperty('route-alternative-layer', 'line-color', '#22C55E');
-            } else {
-                mapRef.current.getSource('route-safe').setData({
-                    type: 'Feature', geometry: { type: 'LineString', coordinates: coords.slice(0, 7) }
-                });
-                mapRef.current.getSource('route-medium').setData({
-                    type: 'Feature', geometry: { type: 'LineString', coordinates: coords.slice(6, 9) }
-                });
-                mapRef.current.getSource('route-danger').setData({
-                    type: 'Feature', geometry: { type: 'LineString', coordinates: coords.slice(8, 13) }
-                });
-                mapRef.current.getSource('route-alternative').setData({
+                altSource.setData({
                     type: 'Feature', geometry: { type: 'LineString', coordinates: [] }
                 });
             }
-        } else {
-            mapRef.current.getSource('route-safe').setData({
-                type: 'Feature', geometry: { type: 'LineString', coordinates: coords }
-            });
-            mapRef.current.getSource('route-medium').setData({
-                type: 'Feature', geometry: { type: 'LineString', coordinates: [] }
-            });
-            mapRef.current.getSource('route-danger').setData({
-                type: 'Feature', geometry: { type: 'LineString', coordinates: [] }
-            });
-            mapRef.current.getSource('route-alternative').setData({
-                type: 'Feature', geometry: { type: 'LineString', coordinates: [] }
-            });
         }
 
         // Apply style opacities
