@@ -154,7 +154,7 @@ import {
     ShieldCheck, Clock, Layers, CloudLightning, ShieldAlert, ShoppingBag, 
     Flame, Leaf, Milestone, Gauge, ArrowRight, Search, PlusCircle, Info, Zap,
     Download, Sliders, MoreHorizontal, Wrench, Box, Trash2,
-    Truck, RotateCcw, Radio, ChevronRight
+    Truck, RotateCcw, Radio, ChevronRight, Compass
 } from 'lucide-react';
 
 const fallbackMissions = [
@@ -1127,6 +1127,7 @@ export default function App() {
             : (missionRouteCoords[activeMissionId] || missionRouteCoords['MED-1024']);
 
         const animate = () => {
+            if (!mapRef.current) return;
             if (activeMission.progress > 0 && activeMission.progress < 100) {
                 animProgressRef.current += 0.0003;
                 if (animProgressRef.current > 0.98) {
