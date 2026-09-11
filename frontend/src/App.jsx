@@ -153,7 +153,8 @@ import {
     Bell, HelpCircle, Plus, Activity, CheckCircle2, AlertOctagon, 
     ShieldCheck, Clock, Layers, CloudLightning, ShieldAlert, ShoppingBag, 
     Flame, Leaf, Milestone, Gauge, ArrowRight, Search, PlusCircle, Info, Zap,
-    Download, Sliders, MoreHorizontal, Wrench, Box, Trash2
+    Download, Sliders, MoreHorizontal, Wrench, Box, Trash2,
+    Truck, RotateCcw, Radio, ChevronRight
 } from 'lucide-react';
 
 const fallbackMissions = [
@@ -467,10 +468,7 @@ export default function App() {
         routesMapRef.current = map;
 
         map.on('error', (e) => {
-            console.error('Routes MapLibre error:', e.error || e);
-            if (!map.isStyleLoaded()) {
-                map.setStyle(osmStyle);
-            }
+            console.warn('Routes MapLibre warning:', e.error || e);
         });
 
         map.on('load', () => {
@@ -740,7 +738,7 @@ export default function App() {
 
     // Initialize MapLibre GL Map with Failover & Navigation Lifecycle
     useEffect(() => {
-        if (currentTab !== 'home' || !mapContainerRef.current) return;
+        if ((currentTab !== 'home' && currentTab !== 'map') || !mapContainerRef.current) return;
 
         const maptilerKey = import.meta.env.VITE_MAPTILER_KEY || '';
         const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
@@ -767,17 +765,7 @@ export default function App() {
 
         // Custom map error handling & logging
         map.on('error', (e) => {
-            console.error('MapLibre error encountered:', e.error || e);
-            
-            // Check if style failed to load
-            if (!map.isStyleLoaded()) {
-                setMapLoadError('Primary map style failed to load. Loading fallback local OSM tiles...');
-                try {
-                    map.setStyle(osmStyle);
-                } catch (err) {
-                    console.error('Fallback style application failed:', err);
-                }
-            }
+            console.warn('MapLibre non-fatal error / warning:', e.error || e);
         });
 
         // Failover connection timeout: if style does not load within 5s, switch to OSM
@@ -1415,7 +1403,7 @@ export default function App() {
                         <MapPin />
                         <span>Routes</span>
                     </a>
-                    <a href="#" className="nav-item">
+                    <a href="#" className={`nav-item ${currentTab === 'map' ? 'active' : ''}`} onClick={() => { setCurrentTab('map'); setIsSidebarOpen(false); }}>
                         <Map />
                         <span>Live Map</span>
                     </a>
@@ -2936,6 +2924,376 @@ export default function App() {
                     </main>
                 )}
 
+                {/* LIVE MAP TAB CONTENT */}
+                {currentTab === 'map' && (
+                    <main className="dashboard-content live-map-page-content">
+                        {/* PAGE HEADER */}
+                        <div className="page-header flex-header" style={{ marginBottom: '1.25rem' }}>
+                            <div>
+                                <h1 className="page-title flex items-center gap-2">
+                                    <Map className="text-primary" style={{ width: 28, height: 28 }} />
+                                    Live Map
+                                </h1>
+                                <p className="page-subtitle">
+                                    Real-time vehicle tracking, route conditions & accessibility intelligence
+                                </p>
+                            </div>
+                            <div className="page-header-actions flex items-center gap-3">
+                                <button 
+                                    className={`btn ${isDisrupted ? 'btn-danger-solid' : 'btn-outline-danger'} flex items-center gap-2`}
+                                    onClick={toggleDisruptionSimulation}
+                                    title="Simulate landslide block and calculate AI alternative route"
+                                >
+                                    <AlertTriangle style={{ width: 16, height: 16 }} />
+                                    <span>{isDisrupted ? 'Landslide Active (Reset)' : 'Simulate Landslide'}</span>
+                                </button>
+
+                                <button 
+                                    className={`btn ${mapLayers.weather ? 'btn-primary-solid' : 'btn-outline-secondary'} flex items-center gap-2`}
+                                    onClick={() => handleLayerToggle('weather')}
+                                    title="Toggle simulated weather radar impact overlay"
+                                >
+                                    <CloudRain style={{ width: 16, height: 16 }} />
+                                    <span>{mapLayers.weather ? 'Weather ON' : 'Weather OFF'}</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* LANDSLIDE SIMULATION ALERT BANNER IF ACTIVE */}
+                        {isDisrupted && (
+                            <div className="card alert-banner-card mb-4 border-left-danger animate-pulse-border" style={{ backgroundColor: 'rgba(239, 68, 68, 0.08)', borderColor: '#EF4444' }}>
+                                <div className="card-body p-3 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+                                    <div className="flex items-center gap-3">
+                                        <div className="alert-icon-circle bg-danger-light text-danger p-2 rounded-full">
+                                            <AlertTriangle style={{ width: 24, height: 24 }} />
+                                        </div>
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <h4 className="text-danger font-bold text-base m-0">⚠️ LANDSLIDE RISK DETECTED ON NH-2</h4>
+                                                <span className="badge badge-danger">CRITICAL DISRUPTION</span>
+                                            </div>
+                                            <p className="text-secondary text-sm m-0 mt-1">
+                                                Kohima-Mao road segment blocked due to heavy rainfall debris flow. <strong>AI Alternative Route B (via Silchar Corridor)</strong> active.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-4 bg-dark-surface p-2 px-3 rounded-lg border border-slate-700 text-xs">
+                                        <div>
+                                            <span className="text-slate-400 block">Risk Reduction</span>
+                                            <span className="text-emerald-400 font-bold text-sm">38%</span>
+                                        </div>
+                                        <div className="border-l border-slate-700 pl-3">
+                                            <span className="text-slate-400 block">Additional ETA</span>
+                                            <span className="text-amber-400 font-bold text-sm">+32 min</span>
+                                        </div>
+                                        <div className="border-l border-slate-700 pl-3">
+                                            <span className="text-slate-400 block">Safety Score</span>
+                                            <span className="text-sky-400 font-bold text-sm">92/100</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* MAIN MAP & MISSION PANEL GRID */}
+                        <div className="live-map-grid-container grid grid-cols-1 lg:grid-cols-12 gap-5 mb-5">
+                            {/* MAP COLUMN (LG: 8 cols) */}
+                            <div className="lg:col-span-8 flex flex-col gap-4">
+                                <div className="card map-card tactical-map-viewport p-0 relative overflow-hidden" style={{ minHeight: 480, height: '600px' }}>
+                                    {/* MAPLIBRE CONTAINER */}
+                                    <div ref={mapContainerRef} className="maplibre-map-container w-full h-full relative" />
+
+                                    {/* TOP-LEFT OVERLAY CONTROLS */}
+                                    <div className="map-overlay-controls-panel">
+                                        <div className="map-overlay-dropdown">
+                                            <button 
+                                                className="btn btn-sm"
+                                                onClick={() => setShowLayersDropdown(!showLayersDropdown)}
+                                            >
+                                                <Layers style={{ width: 14, height: 14 }} />
+                                                <span>Layers</span>
+                                            </button>
+
+                                            {showLayersDropdown && (
+                                                <div className="map-layers-popover">
+                                                    <div className="popover-title">MAP LAYERS</div>
+                                                    <label className="layer-option">
+                                                        <input type="checkbox" checked={mapLayers.roads} onChange={() => handleLayerToggle('roads')} />
+                                                        <span>Roads</span>
+                                                    </label>
+                                                    <label className="layer-option">
+                                                        <input type="checkbox" checked={true} readOnly />
+                                                        <span>Active Route</span>
+                                                    </label>
+                                                    <label className="layer-option">
+                                                        <input type="checkbox" checked={mapLayers.terrain} onChange={() => handleLayerToggle('terrain')} />
+                                                        <span>Terrain</span>
+                                                    </label>
+                                                    <label className="layer-option">
+                                                        <input type="checkbox" checked={mapLayers.riskZones} onChange={() => handleLayerToggle('riskZones')} />
+                                                        <span>Risk Zones</span>
+                                                    </label>
+                                                    <label className="layer-option">
+                                                        <input type="checkbox" checked={mapLayers.vehicle} onChange={() => handleLayerToggle('vehicle')} />
+                                                        <span>Vehicle</span>
+                                                    </label>
+                                                    <label className="layer-option">
+                                                        <input type="checkbox" checked={mapLayers.weather} onChange={() => handleLayerToggle('weather')} />
+                                                        <span>Weather</span>
+                                                    </label>
+                                                    <label className="layer-option">
+                                                        <input type="checkbox" checked={mapLayers.traffic} onChange={() => handleLayerToggle('traffic')} />
+                                                        <span>Traffic</span>
+                                                    </label>
+                                                    <label className="layer-option">
+                                                        <input type="checkbox" checked={mapLayers.disruptions} onChange={() => handleLayerToggle('disruptions')} />
+                                                        <span>Disruptions</span>
+                                                    </label>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <button className="btn btn-sm" onClick={toggle2D3D}>
+                                            <Compass style={{ width: 14, height: 14 }} />
+                                            <span>{is3D ? '3D View' : '2D View'}</span>
+                                        </button>
+
+                                        <button className="btn btn-sm" onClick={recenterMap}>
+                                            <RotateCcw style={{ width: 14, height: 14 }} />
+                                            <span>Recenter</span>
+                                        </button>
+                                    </div>
+
+                                    {/* TOP-RIGHT WEATHER STATUS TAG IF WEATHER LAYER ACTIVE */}
+                                    {mapLayers.weather && (
+                                        <div className="absolute top-3 right-3 z-20 bg-slate-900/85 backdrop-blur border border-sky-500/30 text-sky-300 text-xs px-3 py-1.5 rounded-md flex items-center gap-2 shadow-lg">
+                                            <CloudRain style={{ width: 14, height: 14 }} className="text-sky-400 animate-pulse" />
+                                            <span>Simulated Weather Active</span>
+                                        </div>
+                                    )}
+
+                                    {/* BOTTOM-LEFT ROUTING INTELLIGENCE LEGEND */}
+                                    <div className="map-legend absolute bottom-3 left-3 z-20 bg-slate-900/90 backdrop-blur-md p-3 rounded-lg border border-slate-700/60 text-xs shadow-xl text-slate-200">
+                                        <div className="font-bold text-slate-400 text-[10px] tracking-wider uppercase mb-2">ROUTING INTELLIGENCE</div>
+                                        <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+                                            <div className="flex items-center gap-2">
+                                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                                                <span>Safe Route</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                                                <span>Medium Risk</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+                                                <span>High Risk</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="w-2.5 h-2.5 rounded-full bg-red-600 border border-white"></span>
+                                                <span>Landslide Block</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="w-2.5 h-2.5 rounded-full bg-sky-500 opacity-70"></span>
+                                                <span>Weather Impact</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="w-2.5 h-2.5 rounded-full bg-blue-600 border border-white"></span>
+                                                <span>Vehicle (MED-1024)</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* BOTTOM MISSION STATUS QUICK BAR BELOW MAP (DESKTOP) */}
+                                <div className="card p-4 hidden md:flex flex-row justify-between items-center gap-4 bg-slate-900/60 border border-slate-800">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold">
+                                            <Truck style={{ width: 20, height: 20 }} />
+                                        </div>
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <h4 className="font-bold text-white m-0">Mission Status: MED-1024</h4>
+                                                <span className="badge badge-success">65% Completed</span>
+                                            </div>
+                                            <p className="text-secondary text-xs m-0 mt-0.5">
+                                                Guwahati to Imphal Payload • ETA: 2h 18m • Accessibility: 86/100 • Risk: {isDisrupted ? 'HIGH' : 'LOW'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button 
+                                        className="btn btn-sm btn-outline-primary whitespace-nowrap"
+                                        onClick={() => {
+                                            const found = missions.find(m => m.id === 'MED-1024') || fallbackMissions[0];
+                                            setSelectedMobileMission(found);
+                                        }}
+                                    >
+                                        View Mission Details
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* RIGHT SIDE MISSION PANEL (LG: 4 cols) */}
+                            <div className="lg:col-span-4 flex flex-col gap-4">
+                                {/* ACTIVE MISSION CARD */}
+                                <div className="card p-4">
+                                    <div className="flex justify-between items-center mb-3 pb-2 border-b border-slate-800">
+                                        <h3 className="font-bold text-base text-white m-0 flex items-center gap-2">
+                                            <Activity className="text-primary" style={{ width: 18, height: 18 }} />
+                                            Active Mission
+                                        </h3>
+                                        <span className="badge badge-success flex items-center gap-1">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                            In Transit
+                                        </span>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        <div>
+                                            <div className="text-lg font-bold text-sky-400 flex items-center justify-between">
+                                                <span>MED-1024</span>
+                                                <span className="text-xs font-normal text-slate-400 bg-slate-800 px-2 py-0.5 rounded">Medicine</span>
+                                            </div>
+                                            <div className="text-sm font-semibold text-white mt-1 flex items-center gap-1.5">
+                                                <span>Guwahati</span>
+                                                <ChevronRight style={{ width: 14, height: 14 }} className="text-slate-500" />
+                                                <span>Imphal</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800/80 text-xs">
+                                            <div className="bg-slate-800/40 p-2.5 rounded-lg border border-slate-800">
+                                                <span className="text-slate-400 block text-[11px]">ETA</span>
+                                                <span className="text-white font-bold text-sm">2h 18m</span>
+                                            </div>
+                                            <div className="bg-slate-800/40 p-2.5 rounded-lg border border-slate-800">
+                                                <span className="text-slate-400 block text-[11px]">Distance Left</span>
+                                                <span className="text-white font-bold text-sm">{distLeft}</span>
+                                            </div>
+                                            <div className="bg-slate-800/40 p-2.5 rounded-lg border border-slate-800">
+                                                <span className="text-slate-400 block text-[11px]">Speed</span>
+                                                <span className="text-emerald-400 font-bold text-sm">{speedFluct} km/h</span>
+                                            </div>
+                                            <div className="bg-slate-800/40 p-2.5 rounded-lg border border-slate-800">
+                                                <span className="text-slate-400 block text-[11px]">Vehicle</span>
+                                                <span className="text-white font-bold text-sm">AS-01-BC-1234</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-1.5 pt-2 border-t border-slate-800/80 text-xs">
+                                            <div className="flex justify-between">
+                                                <span className="text-slate-400">Cargo:</span>
+                                                <span className="text-white font-medium">Medical Supplies</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-slate-400">Priority:</span>
+                                                <span className="text-red-400 font-bold">Critical</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-slate-400">Accessibility Score:</span>
+                                                <span className="text-sky-400 font-bold">86/100</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-slate-400">Route Risk:</span>
+                                                <span className={`font-bold ${isDisrupted ? 'text-red-400' : 'text-emerald-400'}`}>
+                                                    {isDisrupted ? 'HIGH' : 'LOW'}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <button 
+                                            className="btn btn-primary w-full mt-3 justify-center text-xs py-2"
+                                            onClick={() => {
+                                                const found = missions.find(m => m.id === 'MED-1024') || fallbackMissions[0];
+                                                setSelectedMobileMission(found);
+                                            }}
+                                        >
+                                            View Mission
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* LIVE TRACKING STATUS CARD */}
+                                <div className="card p-4">
+                                    <h4 className="font-bold text-sm text-slate-300 m-0 mb-3 flex items-center justify-between">
+                                        <span className="flex items-center gap-2">
+                                            <Radio className="text-emerald-400 animate-pulse" style={{ width: 16, height: 16 }} />
+                                            LIVE TRACKING
+                                        </span>
+                                        <span className="text-[11px] text-emerald-400 font-normal">Connected</span>
+                                    </h4>
+
+                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                        <div className="bg-slate-800/30 p-2 rounded border border-slate-800">
+                                            <span className="text-slate-400 block text-[10px]">Vehicle ID</span>
+                                            <span className="text-white font-bold">MED-1024</span>
+                                        </div>
+                                        <div className="bg-slate-800/30 p-2 rounded border border-slate-800">
+                                            <span className="text-slate-400 block text-[10px]">Status</span>
+                                            <span className="text-emerald-400 font-bold">Moving</span>
+                                        </div>
+                                        <div className="bg-slate-800/30 p-2 rounded border border-slate-800">
+                                            <span className="text-slate-400 block text-[10px]">Speed</span>
+                                            <span className="text-white font-bold">{speedFluct} km/h</span>
+                                        </div>
+                                        <div className="bg-slate-800/30 p-2 rounded border border-slate-800">
+                                            <span className="text-slate-400 block text-[10px]">Signal</span>
+                                            <span className="text-emerald-400 font-bold">Strong (4G)</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* ROUTE CONDITION PANEL CARD */}
+                                <div className="card p-4">
+                                    <h4 className="font-bold text-sm text-slate-300 m-0 mb-3 flex items-center gap-2">
+                                        <ShieldCheck className="text-sky-400" style={{ width: 16, height: 16 }} />
+                                        Current Route Condition
+                                    </h4>
+
+                                    <div className="space-y-2 text-xs">
+                                        <div className="flex justify-between items-center bg-slate-800/30 p-2 rounded">
+                                            <span className="text-slate-400">Road Quality</span>
+                                            <span className="text-emerald-400 font-medium">Good</span>
+                                        </div>
+                                        <div className="flex justify-between items-center bg-slate-800/30 p-2 rounded">
+                                            <span className="text-slate-400">Weather Condition</span>
+                                            <span className="text-amber-400 font-medium">{mapLayers.weather ? 'Moderate Rain' : 'Clear'}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center bg-slate-800/30 p-2 rounded">
+                                            <span className="text-slate-400">Terrain Index</span>
+                                            <span className="text-amber-400 font-medium">Difficult</span>
+                                        </div>
+                                        <div className="flex justify-between items-center bg-slate-800/30 p-2 rounded">
+                                            <span className="text-slate-400">Disruption Status</span>
+                                            <span className={`font-medium ${isDisrupted ? 'text-red-400' : 'text-emerald-400'}`}>
+                                                {isDisrupted ? 'Landslide Warning' : 'Low'}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between items-center bg-slate-800/30 p-2 rounded">
+                                            <span className="text-slate-400">Accessibility Score</span>
+                                            <span className="text-sky-400 font-bold">86/100</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* MOBILE ROUTE CONDITION CARD (VISIBLE BELOW MAP ON MOBILE) */}
+                        <div className="block md:hidden card p-4 mb-4">
+                            <h4 className="font-bold text-sm text-slate-300 m-0 mb-2">Route Condition</h4>
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                                <div className="bg-slate-800/50 p-2 rounded text-emerald-400 font-medium">🟢 Road Good</div>
+                                <div className="bg-slate-800/50 p-2 rounded text-amber-400 font-medium">🟠 Moderate Rain</div>
+                                <div className="bg-slate-800/50 p-2 rounded text-amber-400 font-medium">🟠 Difficult Terrain</div>
+                                <div className="bg-slate-800/50 p-2 rounded text-emerald-400 font-medium">🟢 Low Disruption</div>
+                            </div>
+                            <div className="mt-3 text-xs flex justify-between text-slate-300 pt-2 border-t border-slate-800">
+                                <span>Accessibility Index:</span>
+                                <span className="text-sky-400 font-bold">86/100</span>
+                            </div>
+                        </div>
+                    </main>
+                )}
+
                 {/* FOOTER */}
                 <footer className="main-footer">
                     <p>&copy; 2026 NE-RouteIQ. All rights reserved.</p>
@@ -2957,7 +3315,7 @@ export default function App() {
                     <Briefcase />
                     <span>Missions</span>
                 </a>
-                <a href="#" className="mobile-nav-item" onClick={() => { setCurrentTab('home'); setSelectedMobileMission(null); setTimeout(() => { window.scrollTo(0, 300); }, 100); }}>
+                <a href="#" className={`mobile-nav-item ${currentTab === 'map' ? 'active' : ''}`} onClick={() => { setCurrentTab('map'); setSelectedMobileMission(null); }}>
                     <Map />
                     <span>Map</span>
                 </a>
