@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Mail, Phone, Building2, ArrowRight, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { User, Mail, Phone, Building2, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
 import InputField from './InputField';
 import PasswordField from './PasswordField';
 import RoleSelector from './RoleSelector';
@@ -10,7 +10,7 @@ const RegisterForm = ({ onRegisterSuccess, onSwitchToLogin }) => {
         email: '',
         mobile: '',
         organization: '',
-        role: 'operator', // Default to operator
+        role: 'operator',
         password: '',
         confirmPassword: ''
     });
@@ -78,7 +78,6 @@ const RegisterForm = ({ onRegisterSuccess, onSwitchToLogin }) => {
         setLoading(true);
 
         try {
-            // Attempt API registration endpoint or fallback mock
             let res;
             try {
                 res = await fetch('/api/auth/register', {
@@ -86,15 +85,12 @@ const RegisterForm = ({ onRegisterSuccess, onSwitchToLogin }) => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(formData)
                 });
-            } catch (err) {
-                // Network fallback
-            }
+            } catch (err) {}
 
             if (res && res.ok) {
                 const data = await res.json();
                 onRegisterSuccess(data.user);
             } else {
-                // Mock registration handler
                 setTimeout(() => {
                     const newUser = {
                         id: 'USER-' + Math.floor(1000 + Math.random() * 9000),
@@ -106,7 +102,7 @@ const RegisterForm = ({ onRegisterSuccess, onSwitchToLogin }) => {
                     };
                     onRegisterSuccess(newUser);
                     setLoading(false);
-                }, 800);
+                }, 600);
             }
         } catch (err) {
             setErrorMsg('Unable to complete registration. Please try again.');
@@ -115,19 +111,19 @@ const RegisterForm = ({ onRegisterSuccess, onSwitchToLogin }) => {
     };
 
     return (
-        <div className="w-full max-w-md mx-auto py-2">
+        <div style={{ width: '100%' }}>
             {/* HEADER */}
-            <div className="mb-5">
-                <h2 className="text-2xl font-bold text-slate-100 tracking-tight mb-1">Create your account</h2>
-                <p className="text-slate-400 text-xs leading-relaxed">
+            <div className="auth-card-header">
+                <h2 className="auth-card-title">Create your account</h2>
+                <p className="auth-card-subtitle">
                     Join the AI-powered logistics & accessibility network for North-East India.
                 </p>
             </div>
 
             {/* ERROR BANNER */}
             {errorMsg && (
-                <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-xs flex items-start gap-2.5">
-                    <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', padding: '10px 14px', marginBottom: '16px', color: '#F87171', fontSize: '0.78rem', display: 'flex', items: 'center', gap: '8px' }}>
+                    <AlertCircle size={16} />
                     <span>{errorMsg}</span>
                 </div>
             )}
@@ -149,7 +145,7 @@ const RegisterForm = ({ onRegisterSuccess, onSwitchToLogin }) => {
                     disabled={loading}
                 />
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0 12px' }}>
                     <InputField
                         id="register-email"
                         label="Email Address"
@@ -202,7 +198,7 @@ const RegisterForm = ({ onRegisterSuccess, onSwitchToLogin }) => {
                     error={fieldErrors.role}
                 />
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0 12px' }}>
                     <PasswordField
                         id="register-password"
                         label="Password"
@@ -235,30 +231,29 @@ const RegisterForm = ({ onRegisterSuccess, onSwitchToLogin }) => {
                 <button
                     type="submit"
                     disabled={loading}
-                    className="w-full mt-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-sm py-3 px-4 rounded-lg shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-emerald-500/30 active:scale-[0.99]"
-                    style={{ minHeight: '44px' }}
+                    className="auth-submit-btn register-btn"
                 >
                     {loading ? (
                         <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <Loader2 size={16} className="animate-spin" />
                             <span>Creating Account...</span>
                         </>
                     ) : (
                         <>
                             <span>Create Account</span>
-                            <ArrowRight className="w-4 h-4" />
+                            <ArrowRight size={16} />
                         </>
                     )}
                 </button>
             </form>
 
             {/* SWITCH TO LOGIN */}
-            <div className="mt-6 text-center text-xs text-slate-400 pt-4 border-t border-slate-800">
+            <div className="auth-switch-text">
                 Already have an account?{' '}
                 <button
                     type="button"
                     onClick={onSwitchToLogin}
-                    className="text-sky-400 hover:text-sky-300 font-bold ml-1 transition-colors underline-offset-4 hover:underline"
+                    className="auth-switch-btn"
                 >
                     Sign In
                 </button>

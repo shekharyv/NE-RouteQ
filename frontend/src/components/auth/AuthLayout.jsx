@@ -5,38 +5,35 @@ import LoginForm from './LoginForm';
 import RegisterForm from './RegisterForm';
 
 const AuthLayout = ({ onLoginSuccess, initialMode = 'login' }) => {
-    const [mode, setMode] = useState(initialMode); // 'login' or 'register'
+    const [mode, setMode] = useState(initialMode);
 
     return (
-        <div className="min-h-screen w-full bg-slate-950 text-slate-100 flex items-center justify-center p-3 sm:p-6 md:p-8 font-sans overflow-x-hidden">
-            {/* CONTAINER WITH SPLIT SCREEN GRID */}
-            <div className="w-full max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-                
-                {/* DESKTOP LEFT SIDE VISUAL BRAND PANEL (LG: 6 cols or 7 cols) */}
-                <div className="hidden lg:block lg:col-span-6 xl:col-span-7 h-full">
+        <div className="auth-page-wrapper">
+            <div className="auth-main-container">
+                {/* DESKTOP LEFT SIDE VISUAL BRAND PANEL */}
+                <div className="auth-brand-panel-wrapper">
                     <AuthBrandPanel />
                 </div>
 
-                {/* MOBILE / TABLET HEADER BRANDING (Visible < 1024px) */}
-                <div className="block lg:hidden w-full text-center pt-2 pb-1">
-                    <div className="inline-flex items-center gap-2.5 bg-slate-900/90 border border-slate-800 px-4 py-2 rounded-full shadow-lg">
-                        <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-sky-500 to-emerald-500 flex items-center justify-center text-white">
-                            <Navigation className="w-4 h-4 text-white" />
+                {/* MOBILE / TABLET HEADER BRANDING (Visible on small screens) */}
+                <div className="auth-mobile-header">
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', backgroundColor: 'rgba(15, 23, 42, 0.9)', border: '1px solid rgba(255, 255, 255, 0.1)', padding: '8px 16px', borderRadius: '30px', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
+                        <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: 'linear-gradient(135deg, #2563EB 0%, #14B8A6 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFF' }}>
+                            <Navigation size={16} />
                         </div>
-                        <div className="text-left">
-                            <h2 className="text-sm font-black text-white leading-none">NE-RouteIQ</h2>
-                            <p className="text-[9px] font-bold text-sky-400 uppercase leading-none mt-0.5">
+                        <div style={{ textAlign: 'left' }}>
+                            <h2 style={{ fontSize: '0.85rem', fontWeight: 800, color: '#FFF', margin: 0, lineHeight: 1 }}>NE-RouteIQ</h2>
+                            <p style={{ fontSize: '0.6rem', fontWeight: 700, color: '#38BDF8', textTransform: 'uppercase', margin: 0, lineHeight: 1, marginTop: '2px' }}>
                                 Logistics Intelligence
                             </p>
                         </div>
                     </div>
                 </div>
 
-                {/* RIGHT SIDE AUTHENTICATION CARD (LG: 6 cols or 5 cols) */}
-                <div className="w-full lg:col-span-6 xl:col-span-5">
-                    <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800/90 rounded-2xl p-5 sm:p-8 shadow-2xl relative overflow-hidden transition-all duration-300">
-                        {/* DECORATIVE TOP ACCENT LINE */}
-                        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-sky-500 via-teal-400 to-emerald-500" />
+                {/* RIGHT SIDE AUTHENTICATION CARD */}
+                <div className="auth-card-wrapper">
+                    <div className="auth-card">
+                        <div className="auth-card-top-accent" />
 
                         {mode === 'login' ? (
                             <LoginForm

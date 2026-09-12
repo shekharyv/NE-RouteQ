@@ -15,17 +15,17 @@ const InputField = ({
     disabled = false
 }) => {
     return (
-        <div className="form-group mb-4">
-            <label htmlFor={id} className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center justify-between">
+        <div className="auth-form-group">
+            <label htmlFor={id} className="auth-label">
                 <span>
-                    {label} {required && <span className="text-red-400">*</span>}
+                    {label} {required && <span className="auth-label-required">*</span>}
                 </span>
-                {error && <span className="text-red-400 font-normal text-[11px] animate-fade-in">{error}</span>}
+                {error && <span className="auth-label-error">{error}</span>}
             </label>
-            <div className="relative rounded-lg shadow-sm">
+            <div className="auth-input-wrapper">
                 {Icon && (
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                        <Icon className="w-4 h-4" />
+                    <div className="auth-input-icon">
+                        <Icon size={16} />
                     </div>
                 )}
                 <input
@@ -38,14 +38,8 @@ const InputField = ({
                     required={required}
                     disabled={disabled}
                     autoComplete={autoComplete}
-                    className={`w-full bg-slate-900/80 border text-slate-100 placeholder-slate-500 text-sm rounded-lg block py-2.5 transition-all duration-200 ${
-                        Icon ? 'pl-10' : 'pl-3.5'
-                    } pr-3.5 ${
-                        error
-                            ? 'border-red-500/80 focus:ring-2 focus:ring-red-500/20 focus:border-red-500'
-                            : 'border-slate-700/80 focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 hover:border-slate-600'
-                    } disabled:opacity-50 disabled:cursor-not-allowed`}
-                    style={{ minHeight: '44px' }}
+                    className={`auth-input ${error ? 'has-error' : ''}`}
+                    style={!Icon ? { paddingLeft: '14px' } : {}}
                 />
             </div>
         </div>

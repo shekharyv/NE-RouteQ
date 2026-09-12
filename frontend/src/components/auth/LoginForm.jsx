@@ -4,11 +4,11 @@ import InputField from './InputField';
 import PasswordField from './PasswordField';
 
 const DEMO_ACCOUNTS = [
-    { role: 'admin', label: 'Admin', email: 'admin@nerouteiq.in', pass: 'Admin123!', icon: Shield, color: 'text-sky-400 border-sky-500/30 bg-sky-500/10' },
-    { role: 'operator', label: 'Operator', email: 'operator@nerouteiq.in', pass: 'Operator123!', icon: Truck, color: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' },
-    { role: 'ngo', label: 'Relief', email: 'relief@nerouteiq.in', pass: 'Relief123!', icon: HeartHandshake, color: 'text-amber-400 border-amber-500/30 bg-amber-500/10' },
-    { role: 'emergency', label: 'Emergency', email: 'emergency@nerouteiq.in', pass: 'Emergency123!', icon: Siren, color: 'text-red-400 border-red-500/30 bg-red-500/10' },
-    { role: 'driver', label: 'Driver', email: 'driver@nerouteiq.in', pass: 'Driver123!', icon: Compass, color: 'text-purple-400 border-purple-500/30 bg-purple-500/10' }
+    { role: 'admin', label: 'Admin', email: 'admin@nerouteiq.in', pass: 'Admin123!', icon: Shield },
+    { role: 'operator', label: 'Operator', email: 'operator@nerouteiq.in', pass: 'Operator123!', icon: Truck },
+    { role: 'ngo', label: 'Relief', email: 'relief@nerouteiq.in', pass: 'Relief123!', icon: HeartHandshake },
+    { role: 'emergency', label: 'Emergency', email: 'emergency@nerouteiq.in', pass: 'Emergency123!', icon: Siren },
+    { role: 'driver', label: 'Driver', email: 'driver@nerouteiq.in', pass: 'Driver123!', icon: Compass }
 ];
 
 const LoginForm = ({ onLoginSuccess, onSwitchToRegister }) => {
@@ -19,7 +19,6 @@ const LoginForm = ({ onLoginSuccess, onSwitchToRegister }) => {
     const [errorMsg, setErrorMsg] = useState('');
     const [fieldErrors, setFieldErrors] = useState({});
 
-    // Quick demo fill
     const fillDemo = (acc) => {
         setIdentifier(acc.email);
         setPassword(acc.pass);
@@ -48,7 +47,6 @@ const LoginForm = ({ onLoginSuccess, onSwitchToRegister }) => {
         setLoading(true);
 
         try {
-            // Attempt API authentication call or mock fallback
             let res;
             try {
                 res = await fetch('/api/auth/login', {
@@ -56,17 +54,13 @@ const LoginForm = ({ onLoginSuccess, onSwitchToRegister }) => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ identifier, password })
                 });
-            } catch (err) {
-                // Ignore network error if backend API isn't running directly, fallback to mock auth below
-            }
+            } catch (err) {}
 
             if (res && res.ok) {
                 const data = await res.json();
                 onLoginSuccess(data.user);
             } else {
-                // Mock Authentication Logic
                 setTimeout(() => {
-                    // Match demo email or default test credentials
                     const matchedDemo = DEMO_ACCOUNTS.find(a => a.email.toLowerCase() === identifier.toLowerCase());
                     const role = matchedDemo ? matchedDemo.role : 'operator';
                     const name = matchedDemo 
@@ -90,7 +84,7 @@ const LoginForm = ({ onLoginSuccess, onSwitchToRegister }) => {
 
                     onLoginSuccess(mockUser);
                     setLoading(false);
-                }, 800);
+                }, 600);
             }
         } catch (err) {
             setErrorMsg('Unable to connect to authentication server. Please try again.');
@@ -99,30 +93,30 @@ const LoginForm = ({ onLoginSuccess, onSwitchToRegister }) => {
     };
 
     return (
-        <div className="w-full max-w-md mx-auto py-2">
+        <div style={{ width: '100%' }}>
             {/* HEADER */}
-            <div className="mb-6">
-                <h2 className="text-2xl font-bold text-slate-100 tracking-tight mb-1">Welcome back</h2>
-                <p className="text-slate-400 text-xs leading-relaxed">
+            <div className="auth-card-header">
+                <h2 className="auth-card-title">Welcome back</h2>
+                <p className="auth-card-subtitle">
                     Sign in to continue to your logistics command center.
                 </p>
             </div>
 
             {/* ERROR BANNER */}
             {errorMsg && (
-                <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-xs flex items-start gap-2.5 animate-shake">
-                    <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', padding: '10px 14px', marginBottom: '16px', color: '#F87171', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <AlertCircle size={16} />
                     <span>{errorMsg}</span>
                 </div>
             )}
 
             {/* DEMO ACCOUNTS QUICK-FILL STRIP */}
-            <div className="mb-5 p-3 rounded-lg bg-slate-900/60 border border-slate-800">
-                <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+            <div className="auth-demo-strip">
+                <div className="auth-demo-header">
                     <span>Quick Demo Sign-In</span>
-                    <span className="text-[10px] text-slate-500 font-normal">Click role to fill</span>
+                    <span style={{ fontSize: '0.65rem', textTransform: 'none', color: '#64748B' }}>Click role to fill</span>
                 </div>
-                <div className="flex items-center gap-1.5 flex-wrap">
+                <div className="auth-demo-buttons">
                     {DEMO_ACCOUNTS.map((acc) => {
                         const Icon = acc.icon;
                         return (
@@ -130,10 +124,10 @@ const LoginForm = ({ onLoginSuccess, onSwitchToRegister }) => {
                                 key={acc.role}
                                 type="button"
                                 onClick={() => fillDemo(acc)}
-                                className={`px-2.5 py-1.5 rounded-md text-[11px] font-medium border flex items-center gap-1.5 transition-all hover:scale-105 ${acc.color}`}
+                                className="auth-demo-btn"
                                 title={`Fill ${acc.label} credentials (${acc.email})`}
                             >
-                                <Icon className="w-3 h-3" />
+                                <Icon size={12} />
                                 <span>{acc.label}</span>
                             </button>
                         );
@@ -172,13 +166,13 @@ const LoginForm = ({ onLoginSuccess, onSwitchToRegister }) => {
                 />
 
                 {/* REMEMBER ME & FORGOT PASSWORD */}
-                <div className="flex items-center justify-between mb-6 text-xs">
-                    <label className="flex items-center gap-2 text-slate-300 cursor-pointer user-select-none">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '22px', fontSize: '0.78rem' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#CBD5E1', cursor: 'pointer', userSelect: 'none' }}>
                         <input
                             type="checkbox"
                             checked={rememberMe}
                             onChange={(e) => setRememberMe(e.target.checked)}
-                            className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-sky-500 focus:ring-sky-500/20"
+                            style={{ width: '16px', height: '16px', accentColor: '#2563EB', cursor: 'pointer' }}
                         />
                         <span>Remember me</span>
                     </label>
@@ -187,9 +181,9 @@ const LoginForm = ({ onLoginSuccess, onSwitchToRegister }) => {
                         href="#"
                         onClick={(e) => {
                             e.preventDefault();
-                            alert('Password reset link has been dispatched to your registered email address.');
+                            setErrorMsg('Password reset instructions sent to registered email.');
                         }}
-                        className="text-sky-400 hover:text-sky-300 font-medium transition-colors"
+                        style={{ color: '#38BDF8', fontWeight: 600, textDecoration: 'none' }}
                     >
                         Forgot password?
                     </a>
@@ -199,30 +193,29 @@ const LoginForm = ({ onLoginSuccess, onSwitchToRegister }) => {
                 <button
                     type="submit"
                     disabled={loading}
-                    className="w-full bg-gradient-to-r from-sky-500 to-sky-600 hover:from-sky-400 hover:to-sky-500 text-white font-bold text-sm py-3 px-4 rounded-lg shadow-lg shadow-sky-500/20 flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-sky-500/30 active:scale-[0.99]"
-                    style={{ minHeight: '44px' }}
+                    className="auth-submit-btn"
                 >
                     {loading ? (
                         <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <Loader2 size={16} className="animate-spin" />
                             <span>Authenticating...</span>
                         </>
                     ) : (
                         <>
                             <span>Sign In</span>
-                            <ArrowRight className="w-4 h-4" />
+                            <ArrowRight size={16} />
                         </>
                     )}
                 </button>
             </form>
 
             {/* SWITCH TO REGISTER */}
-            <div className="mt-6 text-center text-xs text-slate-400 pt-4 border-t border-slate-800">
+            <div className="auth-switch-text">
                 Don't have an account?{' '}
                 <button
                     type="button"
                     onClick={onSwitchToRegister}
-                    className="text-sky-400 hover:text-sky-300 font-bold ml-1 transition-colors underline-offset-4 hover:underline"
+                    className="auth-switch-btn"
                 >
                     Create account
                 </button>
