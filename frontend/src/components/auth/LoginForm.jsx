@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Mail, ArrowRight, Loader2, AlertCircle, Shield, Truck, HeartHandshake, Siren, Compass } from 'lucide-react';
 import InputField from './InputField';
 import PasswordField from './PasswordField';
+import { setAccessToken } from '../../services/api';
 
 const DEMO_ACCOUNTS = [
     { role: 'admin', label: 'Admin', email: 'admin@nerouteiq.in', pass: 'Admin123!', icon: Shield },
@@ -58,7 +59,8 @@ const LoginForm = ({ onLoginSuccess, onSwitchToRegister }) => {
 
             if (res && res.ok) {
                 const data = await res.json();
-                onLoginSuccess(data.user);
+                if (data.access_token) setAccessToken(data.access_token);
+                onLoginSuccess(data.user, data.access_token);
             } else {
                 setTimeout(() => {
                     const matchedDemo = DEMO_ACCOUNTS.find(a => a.email.toLowerCase() === identifier.toLowerCase());

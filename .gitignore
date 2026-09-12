@@ -8,6 +8,7 @@ frontend/dist/
 frontend/build/
 backend/dist/
 backend/build/
+backend/*.db
 
 # Environment files
 .env

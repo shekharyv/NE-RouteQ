@@ -2,6 +2,24 @@ import React, { useState, useEffect, useRef } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import AuthLayout from './components/auth/AuthLayout';
+import KpiCardsSection from './components/dashboard/KpiCardsSection';
+import ActiveMissionsTable from './components/dashboard/ActiveMissionsTable';
+import AiInsightCard from './components/dashboard/AiInsightCard';
+import AlertsWidget from './components/dashboard/AlertsWidget';
+import RegionalAccessibilityWidget from './components/dashboard/RegionalAccessibilityWidget';
+import QuickActionsStrip from './components/dashboard/QuickActionsStrip';
+import { useDashboardStore } from './store/useDashboardStore';
+import { alertApi, clearAccessToken, missionApi } from './services/api';
+import {
+    AlertsPage,
+    AnalyticsPage,
+    CreateMissionPage,
+    DriverHomePage,
+    DriverMissionPage,
+    ReportsPage,
+    SettingsPage
+} from './components/ProductPages';
+
 
 const missionRouteCoords = {
     'MED-1024': [
@@ -147,6 +165,26 @@ const voyagerRasterStyle = {
         }
     ]
 };
+
+const tabPaths = {
+    home: '/',
+    missions: '/missions',
+    routes: '/routes',
+    map: '/live-map',
+    tracking: '/tracking',
+    alerts: '/alerts',
+    analytics: '/analytics',
+    reports: '/reports',
+    settings: '/settings',
+    'create-mission': '/missions/create',
+    driver: '/driver',
+    'driver-mission': '/driver/mission/MED-1024'
+};
+
+const tabFromPath = Object.entries(tabPaths).reduce((paths, [tab, path]) => {
+    paths[path] = tab;
+    return paths;
+}, {});
 
 import {
     LayoutDashboard, Briefcase, MapPin, Map, Navigation, AlertTriangle, 
@@ -312,6 +350,21 @@ const fallbackAlerts = [
 ];
 
 export default function App() {
+    const [, setDashboardVersion] = useState(0);
+    const dashboardStore = useDashboardStore;
+    const {
+        summary: dashboardSummary,
+        missions: dashboardMissions,
+        alerts: dashboardAlerts,
+        accessibility: dashboardAccessibility,
+    } = dashboardStore.getState();
+
+    useEffect(() => {
+        const unsubscribe = dashboardStore.subscribe(() => setDashboardVersion(version => version + 1));
+        dashboardStore.getState().fetchDashboardData();
+        return unsubscribe;
+    }, [dashboardStore]);
+
     // User Authentication & Session State
     const [currentUser, setCurrentUser] = useState(() => {
         try {
@@ -328,7 +381,7 @@ export default function App() {
     const [alerts, setAlerts] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-    const [currentTab, setCurrentTab] = useState('home'); // 'home', 'missions', 'routes', 'map', 'auth'
+    const [currentTab, setCurrentTab] = useState(() => tabFromPath[window.location.pathname] || 'home');
     const [searchTerm, setSearchTerm] = useState('');
     
     // Missions Page Filters State
@@ -384,6 +437,22 @@ export default function App() {
         disruptions: false
     });
     const [mapLoadError, setMapLoadError] = useState(null);
+
+    const navigateToTab = (tab) => {
+        setCurrentTab(tab);
+        setIsSidebarOpen(false);
+        setSelectedMobileMission(null);
+        const path = tabPaths[tab];
+        if (path && window.location.pathname !== path) {
+            window.history.pushState({}, '', path);
+        }
+    };
+
+    useEffect(() => {
+        const handlePopState = () => setCurrentTab(tabFromPath[window.location.pathname] || 'home');
+        window.addEventListener('popstate', handlePopState);
+        return () => window.removeEventListener('popstate', handlePopState);
+    }, []);
 
     const handleMapRetry = () => {
         setMapLoadError(null);
@@ -961,6 +1030,16 @@ export default function App() {
         }
     }, [isSidebarOpen, currentTab]);
 
+    useEffect(() => {
+        const resizeMaps = () => {
+            if (mapRef.current) mapRef.current.resize();
+            if (routesMapRef.current) routesMapRef.current.resize();
+        };
+
+        window.addEventListener('resize', resizeMaps);
+        return () => window.removeEventListener('resize', resizeMaps);
+    }, []);
+
     // 2D / 3D Toggle
     const toggle2D3D = () => {
         if (!mapRef.current) return;
@@ -1217,13 +1296,22 @@ export default function App() {
 
     const fetchMissions = async () => {
         try {
-            const res = await fetch('/api/missions');
-            if (!res.ok) throw new Error('Fetch failed');
-            const data = await res.json();
-            setMissions(data);
-            if (data.length > 0) {
-                const initialActive = data.find(m => m.id === 'MED-1024');
-                setActiveMissionId(initialActive ? initialActive.id : data[0].id);
+            const data = await missionApi.list();
+            const normalized = data.map(mission => ({
+                ...mission,
+                id: mission.id || mission.mission_id,
+                category: mission.category || mission.type,
+                origin: mission.origin || mission.source,
+                route: mission.route || `${mission.source} → ${mission.destination}`,
+                vehicle: mission.vehicle || mission.vehicle_id || '',
+                risk: mission.risk || `${mission.risk_level || 'LOW'} RISK`,
+                accessibility: mission.accessibility || `${mission.accessibility_score || 0}/100`,
+                progress: mission.progress ?? (mission.status === 'completed' ? 100 : mission.status === 'planning' ? 0 : 65)
+            }));
+            setMissions(normalized);
+            if (normalized.length > 0) {
+                const initialActive = normalized.find(m => m.id === 'MED-1024');
+                setActiveMissionId(initialActive ? initialActive.id : normalized[0].id);
             }
         } catch (err) {
             console.warn('Backend API `/api/missions` unreachable. Falling back to local frontend seed data:', err.message);
@@ -1234,10 +1322,15 @@ export default function App() {
 
     const fetchAlerts = async () => {
         try {
-            const res = await fetch('/api/alerts');
-            if (!res.ok) throw new Error('Fetch failed');
-            const data = await res.json();
-            setAlerts(data);
+            const data = await alertApi.list();
+            setAlerts(data.map(alert => ({
+                ...alert,
+                id: alert.id,
+                level: alert.severity || alert.level,
+                levelClass: alert.severity === 'CRITICAL' || alert.severity === 'HIGH' ? 'high-risk' : alert.severity === 'WARNING' ? 'medium-risk' : 'resolved',
+                time: alert.created_at ? new Date(alert.created_at).toLocaleTimeString() : alert.time,
+                desc: alert.description || alert.desc
+            })));
         } catch (err) {
             console.warn('Backend API `/api/alerts` unreachable. Falling back to local frontend alerts:', err.message);
             setAlerts(fallbackAlerts);
@@ -1250,7 +1343,15 @@ export default function App() {
             const res = await fetch('/api/missions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
+                body: JSON.stringify({
+                    mission_id: formData.id,
+                    type: formData.category,
+                    source: formData.origin,
+                    destination: formData.destination,
+                    priority: formData.priority,
+                    vehicle_id: formData.vehicle,
+                    cargo: formData.cargo
+                })
             });
             const newMission = await res.json();
 
@@ -1384,8 +1485,9 @@ export default function App() {
     if (!currentUser || currentTab === 'auth') {
         return (
             <AuthLayout
-                onLoginSuccess={(user) => {
+                onLoginSuccess={(user, accessToken) => {
                     setCurrentUser(user);
+                    if (accessToken) localStorage.setItem('nerouteiq_access_token', accessToken);
                     try {
                         localStorage.setItem('nerouteiq_user', JSON.stringify(user));
                     } catch (e) {}
@@ -1396,7 +1498,7 @@ export default function App() {
     }
 
     return (
-        <div className="app-container">
+        <div className={`app-container ${currentUser?.role === 'driver' ? 'driver-mode' : ''}`}>
             {/* 1. LEFT SIDEBAR */}
             <aside className={`sidebar ${isSidebarOpen ? 'active' : ''}`} id="sidebar">
                 <div className="sidebar-brand">
@@ -1418,40 +1520,40 @@ export default function App() {
                 </div>
 
                 <nav className="sidebar-nav">
-                    <a href="#" className={`nav-item ${currentTab === 'home' ? 'active' : ''}`} onClick={() => { setCurrentTab('home'); setIsSidebarOpen(false); }}>
+                    <a href={tabPaths.home} className={`nav-item ${currentTab === 'home' ? 'active' : ''}`} onClick={(event) => { event.preventDefault(); navigateToTab('home'); }}>
                         <LayoutDashboard />
                         <span>Home</span>
                     </a>
-                    <a href="#" className={`nav-item ${currentTab === 'missions' ? 'active' : ''}`} onClick={() => { setCurrentTab('missions'); setIsSidebarOpen(false); }}>
+                    <a href={currentUser?.role === 'driver' ? tabPaths['driver-mission'] : tabPaths.missions} className={`nav-item ${currentTab === 'missions' || currentTab === 'driver-mission' ? 'active' : ''}`} onClick={(event) => { event.preventDefault(); navigateToTab(currentUser?.role === 'driver' ? 'driver-mission' : 'missions'); }}>
                         <Briefcase />
                         <span>Missions</span>
                     </a>
-                    <a href="#" className={`nav-item ${currentTab === 'routes' ? 'active' : ''}`} onClick={() => { setCurrentTab('routes'); setIsSidebarOpen(false); }}>
+                    <a href={tabPaths.routes} className={`nav-item driver-restricted ${currentTab === 'routes' ? 'active' : ''}`} onClick={(event) => { event.preventDefault(); navigateToTab('routes'); }}>
                         <MapPin />
                         <span>Routes</span>
                     </a>
-                    <a href="#" className={`nav-item ${currentTab === 'map' ? 'active' : ''}`} onClick={() => { setCurrentTab('map'); setIsSidebarOpen(false); }}>
+                    <a href={tabPaths.map} className={`nav-item ${currentTab === 'map' ? 'active' : ''}`} onClick={(event) => { event.preventDefault(); navigateToTab('map'); }}>
                         <Map />
                         <span>Live Map</span>
                     </a>
-                    <a href="#" className="nav-item">
+                    <a href="#" className={`nav-item driver-restricted ${currentTab === 'tracking' ? 'active' : ''}`} onClick={(event) => { event.preventDefault(); navigateToTab('tracking'); }}>
                         <Navigation />
                         <span>Tracking</span>
                     </a>
-                    <a href="#" className="nav-item">
+                    <a href="#" className={`nav-item ${currentTab === 'alerts' ? 'active' : ''}`} onClick={(event) => { event.preventDefault(); navigateToTab('alerts'); }}>
                         <AlertTriangle />
                         <span>Alerts</span>
                         <span className="nav-badge">{alerts.length}</span>
                     </a>
-                    <a href="#" className="nav-item">
+                    <a href={tabPaths.analytics} className={`nav-item driver-restricted ${currentTab === 'analytics' ? 'active' : ''}`} onClick={(event) => { event.preventDefault(); navigateToTab('analytics'); }}>
                         <BarChart3 />
                         <span>Analytics</span>
                     </a>
-                    <a href="#" className="nav-item">
+                    <a href={tabPaths.reports} className={`nav-item driver-restricted ${currentTab === 'reports' ? 'active' : ''}`} onClick={(event) => { event.preventDefault(); navigateToTab('reports'); }}>
                         <FileText />
                         <span>Reports</span>
                     </a>
-                    <a href="#" className="nav-item">
+                    <a href={tabPaths.settings} className={`nav-item driver-restricted ${currentTab === 'settings' ? 'active' : ''}`} onClick={(event) => { event.preventDefault(); navigateToTab('settings'); }}>
                         <Settings />
                         <span>Settings</span>
                     </a>
@@ -1525,7 +1627,7 @@ export default function App() {
                             className="header-profile cursor-pointer flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-800 transition-colors"
                             onClick={() => {
                                 setCurrentUser(null);
-                                try { localStorage.removeItem('nerouteiq_user'); } catch (e) {}
+                                try { localStorage.removeItem('nerouteiq_user'); clearAccessToken(); } catch (e) {}
                                 setCurrentTab('auth');
                             }}
                             title="Click to sign out / switch role"
@@ -1538,7 +1640,7 @@ export default function App() {
                 </header>
 
                 {/* DYNAMIC TAB CONTROLLERS */}
-                {currentTab === 'home' && (
+                {currentTab === 'home' && currentUser?.role !== 'driver' && (
                     <main className="main-content">
                         {/* 3. HERO SECTION */}
                         <section className="hero-section">
@@ -1549,7 +1651,7 @@ export default function App() {
                                 </p>
                             </div>
                             <div className="hero-right">
-                                <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
+                                <button className="btn btn-primary" onClick={() => navigateToTab('create-mission')}>
                                     <Plus />
                                     <span>Create New Mission</span>
                                 </button>
@@ -1563,90 +1665,7 @@ export default function App() {
                         </div>
 
                         {/* 4. KPI CARDS */}
-                        <section className="kpi-grid">
-                            <div className="kpi-card">
-                                <div className="kpi-header">
-                                    <span className="kpi-title">Active Missions</span>
-                                    <div className="kpi-icon-wrapper primary">
-                                        <Activity />
-                                    </div>
-                                </div>
-                                <div className="kpi-body">
-                                    <span className="kpi-value">
-                                        {String(missions.filter(m => m.progress > 0 && m.progress < 100).length).padStart(2, '0')}
-                                    </span>
-                                    <div className="kpi-indicator success">
-                                        <Zap />
-                                        <span>Optimal telemetry</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="kpi-card">
-                                <div className="kpi-header">
-                                    <span className="kpi-title">Completed Missions</span>
-                                    <div className="kpi-icon-wrapper secondary">
-                                        <CheckCircle2 />
-                                    </div>
-                                </div>
-                                <div className="kpi-body">
-                                    <span className="kpi-value">
-                                        {String(missions.filter(m => m.progress === 100).length + 124).padStart(2, '0')}
-                                    </span>
-                                    <div className="kpi-indicator neutral">
-                                        <span>This Quarter</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="kpi-card">
-                                <div className="kpi-header">
-                                    <span className="kpi-title">Active Alerts</span>
-                                    <div className="kpi-icon-wrapper danger">
-                                        <AlertTriangle />
-                                    </div>
-                                </div>
-                                <div className="kpi-body">
-                                    <span className="kpi-value text-danger">{String(alerts.length).padStart(2, '0')}</span>
-                                    <div className="kpi-indicator danger">
-                                        <AlertOctagon />
-                                        <span>1 Critical Landslide</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="kpi-card">
-                                <div className="kpi-header">
-                                    <span className="kpi-title">Avg. Accessibility</span>
-                                    <div className="kpi-icon-wrapper warning">
-                                        <ShieldCheck />
-                                    </div>
-                                </div>
-                                <div className="kpi-body">
-                                    <span className="kpi-value">86/100</span>
-                                    <div className="kpi-indicator warning">
-                                        <Activity />
-                                        <span>-2% Monsoon impact</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="kpi-card">
-                                <div className="kpi-header">
-                                    <span className="kpi-title">On-Time Delivery</span>
-                                    <div className="kpi-icon-wrapper info">
-                                        <Clock />
-                                    </div>
-                                </div>
-                                <div className="kpi-body">
-                                    <span className="kpi-value">92%</span>
-                                    <div className="kpi-indicator success">
-                                        <Zap />
-                                        <span>+1.4% AI Rerouting</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </section>
+                        <KpiCardsSection summary={dashboardSummary} />
 
                         {/* MAP & ACTIVE DETAIL LAYOUT */}
                         <section className="map-detail-layout">
@@ -1888,8 +1907,29 @@ export default function App() {
                             )}
                         </section>
 
+                        <section className="home-insights-grid">
+                            <div className="home-insights-primary">
+                                <ActiveMissionsTable
+                                    missions={dashboardMissions.length > 0 ? dashboardMissions : missions}
+                                    onViewMission={(mission) => setActiveMissionId(mission.id)}
+                                />
+                                <QuickActionsStrip
+                                    onCreateMission={() => navigateToTab('create-mission')}
+                                    onNavTab={setCurrentTab}
+                                />
+                            </div>
+                            <div className="home-insights-secondary">
+                                <AiInsightCard onWhyClick={() => setCurrentTab('routes')} />
+                                <AlertsWidget
+                                    alerts={dashboardAlerts}
+                                    onViewAllAlerts={() => setCurrentTab('missions')}
+                                />
+                                <RegionalAccessibilityWidget accessibility={dashboardAccessibility} />
+                            </div>
+                        </section>
+
                         {/* BELOW MAP: MISSIONS TABLE & CHART */}
-                        <section className="table-chart-layout">
+                        <section className="table-chart-layout legacy-home-lower">
                             <div className="missions-table-card card">
                                 <div className="card-header border-b">
                                     <h3>My Active Missions</h3>
@@ -1999,13 +2039,13 @@ export default function App() {
                         </section>
 
                         {/* LOWER GRID: ACTIONS & ALERTS */}
-                        <section className="actions-alerts-layout">
+                        <section className="actions-alerts-layout legacy-home-lower">
                             <div className="quick-actions-card card">
                                 <div className="card-header border-b">
                                     <h3>Quick Action Console</h3>
                                 </div>
                                 <div className="quick-actions-grid">
-                                    <button className="action-btn" onClick={() => setIsModalOpen(true)}>
+                                    <button className="action-btn" onClick={() => navigateToTab('create-mission')}>
                                         <div className="action-icon-wrap primary">
                                             <PlusCircle />
                                         </div>
@@ -2072,6 +2112,66 @@ export default function App() {
                     </main>
                 )}
 
+                {currentTab === 'driver' && (
+                    <DriverHomePage
+                        onNavigate={navigateToTab}
+                        onSimulate={toggleDisruptionSimulation}
+                    />
+                )}
+
+                {currentTab === 'driver-mission' && (
+                    <DriverMissionPage
+                        disrupted={isDisrupted}
+                        onNavigate={navigateToTab}
+                        onSimulate={toggleDisruptionSimulation}
+                    />
+                )}
+
+                {currentTab === 'create-mission' && (
+                    <CreateMissionPage
+                        onNavigate={navigateToTab}
+                        onMissionCreated={(mission) => {
+                            setMissions(previous => [mission, ...previous]);
+                            setActiveMissionId(mission.id);
+                        }}
+                    />
+                )}
+
+                {currentTab === 'alerts' && (
+                    <AlertsPage
+                        alerts={dashboardAlerts.length > 0 ? dashboardAlerts : alerts}
+                        onNavigate={navigateToTab}
+                        onSimulate={toggleDisruptionSimulation}
+                    />
+                )}
+
+                {currentTab === 'analytics' && (
+                    <AnalyticsPage summary={dashboardSummary} accessibility={dashboardAccessibility} />
+                )}
+
+                {currentTab === 'reports' && <ReportsPage onNavigate={navigateToTab} />}
+
+                {currentTab === 'settings' && (
+                    <SettingsPage
+                        currentUser={currentUser}
+                        onLogout={() => {
+                            setCurrentUser(null);
+                            try { localStorage.removeItem('nerouteiq_user'); clearAccessToken(); } catch (e) {}
+                            navigateToTab('auth');
+                        }}
+                    />
+                )}
+
+                {currentTab === 'tracking' && (
+                    <main style={{ padding: '28px clamp(16px, 3vw, 40px)', maxWidth: 1480, margin: '0 auto', width: '100%' }}>
+                        <section className="card" style={{ padding: 24 }}>
+                            <h2 className="hero-title">Live Tracking</h2>
+                            <p className="hero-subtitle">Follow active vehicles and mission telemetry in real time.</p>
+                            <button className="btn btn-primary" onClick={() => navigateToTab('map')}><Navigation /> Open Live Map</button>
+                        </section>
+                    </main>
+                )}
+
                 {currentTab === 'missions' && (
                     <main className="main-content">
                         {/* MISSIONS HEADER */}
@@ -2085,7 +2185,7 @@ export default function App() {
                                     <Download style={{ width: 16, height: 16 }} />
                                     <span>Export</span>
                                 </button>
-                                <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
+                                <button className="btn btn-primary" onClick={() => navigateToTab('create-mission')}>
                                     <Plus />
                                     <span>Create New Mission</span>
                                 </button>
@@ -2380,7 +2480,7 @@ export default function App() {
                                                         <AlertTriangle className="empty-icon text-warning" style={{ width: 36, height: 36, margin: '0 auto 12px auto' }} />
                                                         <h4>No missions found</h4>
                                                         <p>Try changing your filters or create a new mission.</p>
-                                                        <button className="btn btn-primary mt-sm" onClick={() => setIsModalOpen(true)}>Create New Mission</button>
+                                                        <button className="btn btn-primary mt-sm" onClick={() => navigateToTab('create-mission')}>Create New Mission</button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -2509,7 +2609,7 @@ export default function App() {
                                     <AlertTriangle className="empty-icon text-warning" style={{ width: 36, height: 36, margin: '0 auto 12px auto' }} />
                                     <h4>No missions found</h4>
                                     <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '16px' }}>Try changing your filters or create a new mission.</p>
-                                    <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>Create New Mission</button>
+                                    <button className="btn btn-primary" onClick={() => navigateToTab('create-mission')}>Create New Mission</button>
                                 </div>
                             )}
                             {filteredMissions.length > 0 && (
@@ -2524,9 +2624,9 @@ export default function App() {
                 )}
 
                 {currentTab === 'routes' && (
-                    <main className="main-content">
+                    <main className="main-content routes-page-content">
                         {/* ROUTES HERO HEADER */}
-                        <section className="hero-section">
+                        <section className="hero-section routes-page-header">
                             <div className="hero-left">
                                 <h2 className="hero-title">Routes</h2>
                                 <p className="hero-subtitle">Plan, compare and optimize logistics routes with AI.</p>
@@ -2544,7 +2644,7 @@ export default function App() {
                         </section>
 
                         {/* ROUTE PLANNER CARD */}
-                        <div className="planner-grid mt-6">
+                        <div className="planner-grid routes-planner-grid mt-6">
                             <div className="card planner-card">
                                 <div className="card-header">
                                     <div className="header-title-wrap">
@@ -2625,7 +2725,7 @@ export default function App() {
 
                         {/* EMPTY STATE BEFORE GENERATING */}
                         {!routesGenerated && !routesSearchLoading && (
-                            <div className="card empty-planner-card mt-6 p-8 text-center">
+                            <div className="card empty-planner-card routes-empty-state mt-6 p-8 text-center">
                                 <MapPin style={{ width: 48, height: 48, color: 'var(--text-secondary)', margin: '0 auto 16px auto', opacity: 0.7 }} />
                                 <h3 className="font-semibold text-main mb-2">Plan your first smart route</h3>
                                 <p className="text-secondary mb-4 max-w-sm mx-auto font-sm">Enter a cargo manifest, origin and destination nodes above to calculate risk-aware AI route alternatives.</p>
@@ -2638,7 +2738,7 @@ export default function App() {
 
                         {/* ROUTE COMPARISON RESULT PANEL */}
                         {routesGenerated && !routesSearchLoading && (
-                            <div className="route-results-section mt-6">
+                            <div className="route-results-section routes-results-section mt-6">
                                 <div className="results-header mb-4">
                                     <h3 className="section-title">AI Route Analysis</h3>
                                     <span className="results-meta">Mission: {plannerMission} | {plannerOrigin} ⇄ {plannerDestination} | <strong className="text-primary">3 Routes Found</strong></span>
@@ -2772,7 +2872,7 @@ export default function App() {
                                                 </button>
                                             </div>
                                         </div>
-                                        <div className="routes-map-viewport" style={{ position: 'relative', height: '420px', padding: 0 }}>
+                                        <div className="routes-map-viewport routes-map-hero" style={{ position: 'relative', height: '560px', padding: 0 }}>
                                             <div ref={routesMapContainerRef} style={{ width: '100%', height: '100%' }}></div>
                                             <div className="map-scan-line"></div>
                                             <div className="map-legend" style={{ zIndex: 10 }}>
@@ -2787,7 +2887,7 @@ export default function App() {
                                     </div>
 
                                     {/* RISK PANEL & ACCESSIBILITY BREAKDOWN */}
-                                    <div className="routes-metrics-panel">
+                                    <div className="routes-metrics-panel routes-details-column">
                                         {/* ACCESSIBILITY BREAKDOWN */}
                                         <div className="card accessibility-breakdown-card p-4">
                                             <div className="panel-header mb-3" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -2964,7 +3064,7 @@ export default function App() {
 
                 {/* LIVE MAP TAB CONTENT */}
                 {currentTab === 'map' && (
-                    <main className="dashboard-content live-map-page-content">
+                    <main className="dashboard-content live-map-page-content live-map-refined">
                         {/* PAGE HEADER */}
                         <div className="page-header flex-header" style={{ marginBottom: '1.25rem' }}>
                             <div>
@@ -2993,6 +3093,14 @@ export default function App() {
                                 >
                                     <CloudRain style={{ width: 16, height: 16 }} />
                                     <span>{mapLayers.weather ? 'Weather ON' : 'Weather OFF'}</span>
+                                </button>
+                                <button
+                                    className="btn btn-outline-secondary flex items-center gap-2"
+                                    onClick={() => handleLayerToggle('weather')}
+                                    title="Simulate heavy rain conditions"
+                                >
+                                    <CloudLightning style={{ width: 16, height: 16 }} />
+                                    <span>Simulate Heavy Rain</span>
                                 </button>
                             </div>
                         </div>
@@ -3037,7 +3145,7 @@ export default function App() {
                         <div className="live-map-grid-container grid grid-cols-1 lg:grid-cols-12 gap-5 mb-5">
                             {/* MAP COLUMN (LG: 8 cols) */}
                             <div className="lg:col-span-8 flex flex-col gap-4">
-                                <div className="card map-card tactical-map-viewport p-0 relative overflow-hidden" style={{ minHeight: 480, height: '600px' }}>
+                                <div className="card map-card tactical-map-viewport live-map-hero p-0 relative overflow-hidden" style={{ minHeight: 560, height: 'min(68vh, 680px)' }}>
                                     {/* MAPLIBRE CONTAINER */}
                                     <div ref={mapContainerRef} className="maplibre-map-container w-full h-full relative" />
 
@@ -3349,7 +3457,7 @@ export default function App() {
                     <LayoutDashboard />
                     <span>Home</span>
                 </a>
-                <a href="#" className={`mobile-nav-item ${currentTab === 'missions' ? 'active' : ''}`} onClick={() => { setCurrentTab('missions'); setSelectedMobileMission(null); }}>
+                <a href={currentUser?.role === 'driver' ? tabPaths['driver-mission'] : tabPaths.missions} className={`mobile-nav-item ${currentTab === 'missions' || currentTab === 'driver-mission' ? 'active' : ''}`} onClick={(event) => { event.preventDefault(); navigateToTab(currentUser?.role === 'driver' ? 'driver-mission' : 'missions'); }}>
                     <Briefcase />
                     <span>Missions</span>
                 </a>
@@ -3357,12 +3465,12 @@ export default function App() {
                     <Map />
                     <span>Map</span>
                 </a>
-                <a href="#" className="mobile-nav-item">
+                <a href={tabPaths.alerts} className="mobile-nav-item" onClick={(event) => { event.preventDefault(); navigateToTab('alerts'); }}>
                     <Bell />
                     <span>Alerts</span>
                     {alerts.length > 0 && <span className="mobile-badge">{alerts.length}</span>}
                 </a>
-                <a href="#" className="mobile-nav-item">
+                <a href={currentUser?.role === 'driver' ? tabPaths.driver : tabPaths.settings} className="mobile-nav-item" onClick={(event) => { event.preventDefault(); navigateToTab(currentUser?.role === 'driver' ? 'driver' : 'settings'); }}>
                     <Settings />
                     <span>Profile</span>
                 </a>
