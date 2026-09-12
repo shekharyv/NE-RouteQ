@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import AuthLayout from './components/auth/AuthLayout';
 
 const missionRouteCoords = {
     'MED-1024': [
@@ -154,7 +155,7 @@ import {
     ShieldCheck, Clock, Layers, CloudLightning, ShieldAlert, ShoppingBag, 
     Flame, Leaf, Milestone, Gauge, ArrowRight, Search, PlusCircle, Info, Zap,
     Download, Sliders, MoreHorizontal, Wrench, Box, Trash2,
-    Truck, RotateCcw, Radio, ChevronRight, Compass
+    Truck, RotateCcw, Radio, ChevronRight, Compass, LogOut, LogIn
 } from 'lucide-react';
 
 const fallbackMissions = [
@@ -311,13 +312,23 @@ const fallbackAlerts = [
 ];
 
 export default function App() {
+    // User Authentication & Session State
+    const [currentUser, setCurrentUser] = useState(() => {
+        try {
+            const saved = localStorage.getItem('nerouteiq_user');
+            return saved ? JSON.parse(saved) : null;
+        } catch (e) {
+            return null;
+        }
+    });
+
     // Application state
     const [missions, setMissions] = useState([]);
     const [activeMissionId, setActiveMissionId] = useState('MED-1024');
     const [alerts, setAlerts] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-    const [currentTab, setCurrentTab] = useState('home'); // 'home' or 'missions'
+    const [currentTab, setCurrentTab] = useState('home'); // 'home', 'missions', 'routes', 'map', 'auth'
     const [searchTerm, setSearchTerm] = useState('');
     
     // Missions Page Filters State
@@ -1369,6 +1380,21 @@ export default function App() {
         return matchesSearch && matchesStatus && matchesType && matchesPriority;
     });
 
+    // Render Auth Page if user is not authenticated or explicitly on 'auth' tab
+    if (!currentUser || currentTab === 'auth') {
+        return (
+            <AuthLayout
+                onLoginSuccess={(user) => {
+                    setCurrentUser(user);
+                    try {
+                        localStorage.setItem('nerouteiq_user', JSON.stringify(user));
+                    } catch (e) {}
+                    setCurrentTab('home');
+                }}
+            />
+        );
+    }
+
     return (
         <div className="app-container">
             {/* 1. LEFT SIDEBAR */}
@@ -1432,14 +1458,13 @@ export default function App() {
                 </nav>
 
                 <div className="sidebar-footer">
-                    {/* Shekhar Kumar User Profile */}
+                    {/* Active User Profile Card */}
                     <div className="user-profile-card">
                         <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100&h=100" alt="User Avatar" className="user-avatar-img" />
                         <div className="user-info">
-                            <h4>Shekhar Kumar</h4>
-                            <p>Logistics Operator</p>
+                            <h4>{currentUser?.name || 'Shekhar Kumar'}</h4>
+                            <p className="capitalize text-sky-400">{currentUser?.role ? `${currentUser.role} Role` : 'Logistics Operator'}</p>
                         </div>
-                        <ChevronDown className="user-dropdown-icon" />
                     </div>
 
                     {/* Subtle AI Intelligence Card */}
@@ -1496,8 +1521,18 @@ export default function App() {
                         <div className="header-action-btn help-btn">
                             <HelpCircle />
                         </div>
-                        <div className="header-profile">
+                        <div 
+                            className="header-profile cursor-pointer flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-800 transition-colors"
+                            onClick={() => {
+                                setCurrentUser(null);
+                                try { localStorage.removeItem('nerouteiq_user'); } catch (e) {}
+                                setCurrentTab('auth');
+                            }}
+                            title="Click to sign out / switch role"
+                        >
                             <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100&h=100" alt="User Avatar" className="header-avatar" />
+                            <span className="text-xs text-slate-300 hidden sm:inline-block font-semibold">{currentUser?.name || 'Sign Out'}</span>
+                            <LogOut className="w-3.5 h-3.5 text-slate-400" />
                         </div>
                     </div>
                 </header>
@@ -1508,8 +1543,10 @@ export default function App() {
                         {/* 3. HERO SECTION */}
                         <section className="hero-section">
                             <div className="hero-left">
-                                <h2 className="hero-title">Hello, Shekhar 👋</h2>
-                                <p className="hero-subtitle">Logistics intelligence & accessibility insights for North-East India</p>
+                                <h2 className="hero-title">Hello, {currentUser?.name ? currentUser.name.split(' ')[0] : 'Shekhar'} 👋</h2>
+                                <p className="hero-subtitle">
+                                    Logistics intelligence & accessibility insights • Role: <strong className="text-sky-400 capitalize">{currentUser?.role || 'Operator'}</strong>
+                                </p>
                             </div>
                             <div className="hero-right">
                                 <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>

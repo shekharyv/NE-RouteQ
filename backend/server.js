@@ -163,6 +163,64 @@ mongoose.connect(mongoURI)
 
 // API Routes
 
+// POST: Auth Login
+app.post('/api/auth/login', (req, res) => {
+    const { identifier, password } = req.body;
+    if (!identifier || !password) {
+        return res.status(400).json({ error: 'Email/Mobile and Password are required' });
+    }
+
+    // Role mapping based on email or default operator
+    let role = 'operator';
+    let name = 'Logistics Operator';
+    
+    if (identifier.toLowerCase().includes('admin')) {
+        role = 'admin';
+        name = 'Dr. Himanta Sharma (State Admin)';
+    } else if (identifier.toLowerCase().includes('relief') || identifier.toLowerCase().includes('ngo')) {
+        role = 'ngo';
+        name = 'Relief Field Coordinator';
+    } else if (identifier.toLowerCase().includes('emergency')) {
+        role = 'emergency';
+        name = 'Emergency Response Commander';
+    } else if (identifier.toLowerCase().includes('driver')) {
+        role = 'driver';
+        name = 'Rajesh Gogoi (Lead Driver)';
+    }
+
+    res.json({
+        message: 'Authentication successful',
+        user: {
+            id: 'USER-' + Math.floor(1000 + Math.random() * 9000),
+            name,
+            email: identifier.includes('@') ? identifier : `${identifier}@nerouteiq.in`,
+            mobile: identifier.includes('@') ? '9876543210' : identifier,
+            role,
+            organization: 'NE-RouteIQ Logistics Command'
+        }
+    });
+});
+
+// POST: Auth Register
+app.post('/api/auth/register', (req, res) => {
+    const { name, email, mobile, organization, role, password } = req.body;
+    if (!name || !email || !password || !role) {
+        return res.status(400).json({ error: 'Name, email, role, and password are required' });
+    }
+
+    res.json({
+        message: 'Account created successfully',
+        user: {
+            id: 'USER-' + Math.floor(1000 + Math.random() * 9000),
+            name,
+            email,
+            mobile,
+            organization,
+            role
+        }
+    });
+});
+
 // GET: All Missions
 app.get('/api/missions', async (req, res) => {
     try {
