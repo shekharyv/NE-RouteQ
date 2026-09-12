@@ -3,6 +3,7 @@ import { User, Mail, Phone, Building2, ArrowRight, Loader2, AlertCircle } from '
 import InputField from './InputField';
 import PasswordField from './PasswordField';
 import RoleSelector from './RoleSelector';
+import { setAccessToken } from '../../services/api';
 
 const RegisterForm = ({ onRegisterSuccess, onSwitchToLogin }) => {
     const [formData, setFormData] = useState({
@@ -89,7 +90,8 @@ const RegisterForm = ({ onRegisterSuccess, onSwitchToLogin }) => {
 
             if (res && res.ok) {
                 const data = await res.json();
-                onRegisterSuccess(data.user);
+                if (data.access_token) setAccessToken(data.access_token);
+                onRegisterSuccess(data.user, data.access_token);
             } else {
                 setTimeout(() => {
                     const newUser = {
