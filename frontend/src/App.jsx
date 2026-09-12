@@ -19,6 +19,7 @@ import {
     ReportsPage,
     SettingsPage
 } from './components/ProductPages';
+import MissionDetailsPage from './components/MissionDetailsPage';
 
 
 const missionRouteCoords = {
@@ -185,6 +186,13 @@ const tabFromPath = Object.entries(tabPaths).reduce((paths, [tab, path]) => {
     paths[path] = tab;
     return paths;
 }, {});
+
+const getTabFromPath = (path) => {
+    if (tabFromPath[path]) return tabFromPath[path];
+    if (/^\/missions\/[^/]+$/.test(path)) return 'mission-details';
+    if (/^\/reports\/[^/]+$/.test(path)) return 'reports';
+    return 'home';
+};
 
 import {
     LayoutDashboard, Briefcase, MapPin, Map, Navigation, AlertTriangle, 
@@ -381,7 +389,7 @@ export default function App() {
     const [alerts, setAlerts] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-    const [currentTab, setCurrentTab] = useState(() => tabFromPath[window.location.pathname] || 'home');
+    const [currentTab, setCurrentTab] = useState(() => getTabFromPath(window.location.pathname));
     const [searchTerm, setSearchTerm] = useState('');
     
     // Missions Page Filters State
@@ -438,18 +446,23 @@ export default function App() {
     });
     const [mapLoadError, setMapLoadError] = useState(null);
 
-    const navigateToTab = (tab) => {
+    const navigateToTab = (tab, missionId) => {
+        if (missionId) {
+            setActiveMissionId(missionId);
+            dashboardStore.getState().setSelectedMissionId(missionId);
+            setPlannerMission(missionId);
+        }
         setCurrentTab(tab);
         setIsSidebarOpen(false);
         setSelectedMobileMission(null);
-        const path = tabPaths[tab];
+        const path = tab === 'mission-details' && missionId ? `/missions/${encodeURIComponent(missionId)}` : tab === 'reports' && missionId ? `/reports/${encodeURIComponent(missionId)}` : tabPaths[tab];
         if (path && window.location.pathname !== path) {
             window.history.pushState({}, '', path);
         }
     };
 
     useEffect(() => {
-        const handlePopState = () => setCurrentTab(tabFromPath[window.location.pathname] || 'home');
+        const handlePopState = () => setCurrentTab(getTabFromPath(window.location.pathname));
         window.addEventListener('popstate', handlePopState);
         return () => window.removeEventListener('popstate', handlePopState);
     }, []);
@@ -719,6 +732,10 @@ export default function App() {
 
     // Active Mission configuration
     const activeMission = missions.find(m => m.id === activeMissionId) || missions[0];
+    const missionFromUrl = currentTab === 'mission-details' ? decodeURIComponent(window.location.pathname.split('/')[2] || '') : '';
+    const detailsMission = dashboardMissions.find(m => (m.id || m.mission_id) === missionFromUrl)
+        || missions.find(m => m.id === missionFromUrl)
+        || fallbackMissions.find(m => m.id === missionFromUrl);
 
     // Fetch initial data from APIs
     useEffect(() => {
@@ -1911,7 +1928,7 @@ export default function App() {
                             <div className="home-insights-primary">
                                 <ActiveMissionsTable
                                     missions={dashboardMissions.length > 0 ? dashboardMissions : missions}
-                                    onViewMission={(mission) => setActiveMissionId(mission.id)}
+                                    onViewMission={(mission) => navigateToTab('mission-details', mission.id || mission.mission_id)}
                                 />
                                 <QuickActionsStrip
                                     onCreateMission={() => navigateToTab('create-mission')}
@@ -2150,6 +2167,10 @@ export default function App() {
                 )}
 
                 {currentTab === 'reports' && <ReportsPage onNavigate={navigateToTab} />}
+
+                {currentTab === 'mission-details' && (
+                    <MissionDetailsPage mission={detailsMission} onNavigate={navigateToTab} />
+                )}
 
                 {currentTab === 'settings' && (
                     <SettingsPage
@@ -2449,8 +2470,7 @@ export default function App() {
                                                                 className="btn btn-icon btn-sm btn-ghost" 
                                                                 title="View details"
                                                                 onClick={() => {
-                                                                    setActiveMissionId(mission.id);
-                                                                    setCurrentTab('home');
+                                                                    navigateToTab('mission-details', mission.id);
                                                                 }}
                                                             >
                                                                 <Navigation style={{ width: 14, height: 14 }} />
@@ -3453,7 +3473,7 @@ export default function App() {
 
             {/* MOBILE BOTTOM NAVIGATION */}
             <div className="mobile-bottom-nav">
-                <a href="#" className={`mobile-nav-item ${currentTab === 'home' ? 'active' : ''}`} onClick={() => { setCurrentTab('home'); setSelectedMobileMission(null); }}>
+                <a href={tabPaths.home} className={`mobile-nav-item ${currentTab === 'home' ? 'active' : ''}`} onClick={(event) => { event.preventDefault(); navigateToTab('home'); }}>
                     <LayoutDashboard />
                     <span>Home</span>
                 </a>
@@ -3461,7 +3481,7 @@ export default function App() {
                     <Briefcase />
                     <span>Missions</span>
                 </a>
-                <a href="#" className={`mobile-nav-item ${currentTab === 'map' ? 'active' : ''}`} onClick={() => { setCurrentTab('map'); setSelectedMobileMission(null); }}>
+                <a href={tabPaths.map} className={`mobile-nav-item ${currentTab === 'map' ? 'active' : ''}`} onClick={(event) => { event.preventDefault(); navigateToTab('map'); }}>
                     <Map />
                     <span>Map</span>
                 </a>
